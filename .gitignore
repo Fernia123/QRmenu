@@ -18,6 +18,9 @@ pnpm-debug.log*
 .env
 .env.production
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .env.*.local
 
 # macOS-specific files
