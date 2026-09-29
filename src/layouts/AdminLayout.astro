@@ -1,0 +1,255 @@
+---
+import '../styles/global.css';
+import Icon from '../components/Icon.astro';
+import Logo from '../components/Logo.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Admin · MiCarta',
+  description = 'Panel de administración de MiCarta.',
+} = Astro.props;
+
+const currentPath = Astro.url.pathname;
+
+const nav = [
+  { label: 'Dashboard', href: '/admin', icon: 'dashboard', exact: true },
+  { label: 'Clientes', href: '/admin/clientes', icon: 'users' },
+  { label: 'Estadísticas', href: '/admin/estadisticas', icon: 'chart' },
+] as const;
+
+const isActive = (href: string, exact?: boolean) =>
+  exact ? currentPath === href || currentPath === '/admin/' : currentPath.startsWith(href);
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#2a9d8f" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800;9..144,900&family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title}</title>
+  </head>
+
+  <body class="bg-ink-950 text-ink-100 antialiased">
+    <div class="min-h-screen flex">
+      <!-- Desktop sidebar -->
+      <aside class="hidden md:flex w-64 bg-ink-900 flex-col fixed inset-y-0 left-0 z-20 border-r border-ink-800">
+        <div class="flex flex-col h-full">
+          <!-- Logo -->
+          <div class="px-5 py-6 flex items-center gap-3">
+            <Logo size="sm" />
+            <div>
+              <span class="font-display font-black text-lg text-white tracking-tight">Menu QR</span>
+              <span class="block text-xs text-ink-500">Panel administrativo</span>
+            </div>
+          </div>
+
+          <!-- Nav -->
+          <nav class="px-3 flex-1" aria-label="Principal">
+            <p class="px-3 text-[10px] font-semibold text-ink-600 uppercase tracking-wider mb-2">Principal</p>
+            {nav.map((item) => (
+              <a
+                href={item.href}
+                aria-current={isActive(item.href, 'exact' in item && item.exact) ? 'page' : undefined}
+                class={`flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 text-sm transition ${
+                  isActive(item.href, 'exact' in item && item.exact)
+                    ? 'bg-brand-500/15 text-brand-400 font-semibold'
+                    : 'text-ink-400 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <Icon name={item.icon} class="w-5 h-5" />
+                <span>{item.label}</span>
+              </a>
+            ))}
+
+            <p class="px-3 mt-6 text-[10px] font-semibold text-ink-600 uppercase tracking-wider mb-2">Sistema</p>
+            <a
+              href="#"
+              class="flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 text-sm text-ink-400 hover:bg-white/5 hover:text-white transition"
+            >
+              <Icon name="gear" class="w-5 h-5" />
+              <span>Configuración</span>
+            </a>
+          </nav>
+
+          <!-- User -->
+          <div class="p-4 border-t border-ink-800">
+            <div class="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition">
+              <span class="w-9 h-9 bg-brand-500/20 text-brand-400 rounded-full flex items-center justify-center font-bold text-sm shrink-0">
+                A
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="block font-semibold text-sm text-ink-100 truncate">Administrador</span>
+                <span class="block text-xs text-ink-500 truncate">Cuenta principal</span>
+              </span>
+            </div>
+
+            <a
+              href="/login"
+              data-logout
+              class="flex items-center gap-2 px-2.5 py-2.5 mt-1 text-sm text-ink-500 hover:text-cherry-400 transition"
+            >
+              <Icon name="logout" class="w-5 h-5" />
+              Cerrar sesión
+            </a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Mobile overlay -->
+      <div
+        id="mobileMenuOverlay"
+        class="fixed inset-0 bg-ink-950/80 backdrop-blur-sm z-30 opacity-0 pointer-events-none transition-opacity md:hidden"
+      ></div>
+
+      <!-- Mobile drawer -->
+      <aside
+        id="mobileDrawer"
+        class="fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] bg-ink-900 md:hidden -translate-x-full transition-transform duration-300 ease-in-out border-r border-ink-800"
+      >
+        <div class="flex flex-col h-full">
+          <!-- Logo mobile -->
+          <div class="px-5 py-6 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <Logo size="sm" />
+              <div>
+                <span class="font-display font-black text-lg text-white tracking-tight">Menu QR</span>
+                <span class="block text-xs text-ink-500">Panel administrativo</span>
+              </div>
+            </div>
+            <button
+              id="closeMenuBtn"
+              class="w-9 h-9 rounded-lg hover:bg-white/10 transition flex items-center justify-center text-ink-400 hover:text-white"
+              aria-label="Cerrar menú"
+            >
+              <Icon name="close" class="w-5 h-5" />
+            </button>
+          </div>
+
+          <!-- Nav mobile -->
+          <nav class="px-3 flex-1" aria-label="Principal">
+            {nav.map((item) => (
+              <a
+                href={item.href}
+                class={`flex items-center gap-3 px-3 py-2.5 rounded-xl mb-1 text-sm transition ${
+                  isActive(item.href, 'exact' in item && item.exact)
+                    ? 'bg-brand-500/15 text-brand-400 font-semibold'
+                    : 'text-ink-400 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <Icon name={item.icon} class="w-5 h-5" />
+                <span>{item.label}</span>
+              </a>
+            ))}
+          </nav>
+
+          <!-- User mobile -->
+          <div class="p-4 border-t border-ink-800">
+            <div class="flex items-center gap-3 p-2.5">
+              <span class="w-9 h-9 bg-brand-500/20 text-brand-400 rounded-full flex items-center justify-center font-bold text-sm">
+                A
+              </span>
+              <span>
+                <span class="block font-semibold text-sm text-ink-100">Administrador</span>
+                <span class="block text-xs text-ink-500">Cuenta principal</span>
+              </span>
+            </div>
+            <a
+              href="/login"
+              data-logout
+              class="flex items-center gap-2 px-2.5 py-2.5 mt-1 text-sm text-ink-500 hover:text-cherry-400 transition"
+            >
+              <Icon name="logout" class="w-5 h-5" />
+              Cerrar sesión
+            </a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main class="flex-1 md:ml-64">
+        <header class="h-16 bg-ink-950/90 backdrop-blur border-b border-ink-800 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
+          <!-- Mobile brand -->
+          <div class="flex items-center gap-2 md:hidden">
+            <button
+              id="openMobileMenu"
+              class="w-9 h-9 rounded-lg hover:bg-ink-800 transition flex items-center justify-center text-ink-400"
+              aria-label="Abrir menú"
+            >
+              <Icon name="burger" class="w-5 h-5" />
+            </button>
+          </div>
+
+          <!-- Breadcrumb -->
+          <div class="hidden md:block text-sm text-ink-500">
+            Panel / <span class="text-ink-200 font-medium">Dashboard</span>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-3 ml-auto">
+            <a
+              href="/dashboard"
+              class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-500 text-white text-xs font-semibold hover:bg-brand-400 transition"
+            >
+              <Icon name="eye" class="w-4 h-4" />
+              Ver Dashboard
+            </a>
+
+            <button
+              class="w-9 h-9 rounded-lg border border-ink-800 bg-ink-900 text-ink-400 hover:text-white hover:bg-ink-800 transition flex items-center justify-center"
+              aria-label="Notificaciones"
+            >
+              <Icon name="bell" class="w-4 h-4" />
+            </button>
+          </div>
+        </header>
+
+        <div class="p-4 md:p-8">
+          <slot />
+        </div>
+      </main>
+    </div>
+
+    <script>
+      const openBtn = document.getElementById('openMobileMenu');
+      const closeBtn = document.getElementById('closeMenuBtn');
+      const overlay = document.getElementById('mobileMenuOverlay');
+      const drawer = document.getElementById('mobileDrawer');
+
+      const open = () => {
+        drawer?.classList.remove('-translate-x-full');
+        overlay?.classList.remove('opacity-0', 'pointer-events-none');
+        document.body.style.overflow = 'hidden';
+      };
+
+      const close = () => {
+        drawer?.classList.add('-translate-x-full');
+        overlay?.classList.add('opacity-0', 'pointer-events-none');
+        document.body.style.overflow = '';
+      };
+
+      openBtn?.addEventListener('click', open);
+      closeBtn?.addEventListener('click', close);
+      overlay?.addEventListener('click', close);
+      drawer?.querySelectorAll('a').forEach((a) => a.addEventListener('click', close));
+      document.addEventListener('keydown', (e) => e.key === 'Escape' && close());
+    </script>
+    <script>
+      import { requireAuth, initLogout } from '../scripts/auth';
+      initLogout();
+      requireAuth('admin');
+    </script>
+  </body>
+</html>

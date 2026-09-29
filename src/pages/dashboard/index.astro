@@ -1,0 +1,532 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { fetchCategorias, fetchPlatos, fetchRestaurant } from '../../db/database';
+
+let categories: any[] = [];
+let dishes: any[] = [];
+let restaurant: any = { id: null, name: '', logo: '🍽️' };
+
+try {
+  categories = await fetchCategorias();
+  dishes = await fetchPlatos();
+  restaurant = await fetchRestaurant();
+} catch (e) {
+  console.error('Error cargando datos del dashboard:', e);
+}
+
+const totalDishes = dishes.length;
+const availableDishes = dishes.filter((d) => d.disponible).length;
+const soldOut = totalDishes - availableDishes;
+const avgPrice = totalDishes
+  ? (dishes.reduce((s, d) => s + d.precio, 0) / totalDishes).toFixed(1).replace('.0', '')
+  : '0';
+
+const stats = [
+  { id: 'statDishes', label: 'Total de platos', value: String(totalDishes), icon: 'dishes', iconBg: 'bg-brand-500/20 text-brand-400' },
+  { id: 'statAvailable', label: 'Disponibles', value: String(availableDishes), icon: 'check', iconBg: 'bg-mint-500/20 text-mint-400' },
+  { id: 'statSoldOut', label: 'Agotados', value: String(soldOut), icon: 'clock', iconBg: 'bg-cherry-500/20 text-cherry-400' },
+  { id: 'statAvg', label: 'Precio promedio', value: `S/${avgPrice}`, icon: 'chart', iconBg: 'bg-blue-500/20 text-blue-400' },
+] as const;
+
+---
+
+<DashboardLayout title="Dashboard · MiCarta" businessName={restaurant.name || ''}>
+  <!-- Server → client bootstrap -->
+  <script type="application/json" id="menu-bootstrap" set:html={JSON.stringify({ categories, dishes, clienteId: restaurant.id })} />
+
+  <!-- ── KPI Banner ─────────────────────────────────────── -->
+  <section class="relative overflow-hidden rounded-3xl bg-ink-900 text-white p-6 md:p-8 mb-6">
+    <div class="absolute -top-24 -right-16 w-72 h-72 bg-brand-500/25 rounded-full blur-[100px] pointer-events-none" aria-hidden="true"></div>
+    <div class="absolute -bottom-28 -left-10 w-64 h-64 bg-amber-600/10 rounded-full blur-[90px] pointer-events-none" aria-hidden="true"></div>
+
+    <div class="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      <div>
+        <p class="text-xs font-semibold text-brand-400 uppercase tracking-wider mb-2">Panel de administración</p>
+        <h1 class="font-display text-2xl md:text-3xl font-black tracking-tight">Buenos días 👋</h1>
+        <p class="text-ink-300 mt-1.5 text-sm max-w-md">
+          <span class="font-semibold text-white">{restaurant.name || 'Tu restaurante'}</span> tiene
+          <span class="font-semibold text-brand-400"><span id="bannerAvailable">{availableDishes}</span> de <span id="bannerTotal">{totalDishes}</span> platos</span> disponibles hoy.
+        </p>
+
+        <!-- Category quick filters -->
+        <div class="flex flex-wrap gap-2 mt-5">
+          <button data-jump-filter="all" class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white/10 border border-white/10 hover:bg-white/20 transition">
+            Todas · {totalDishes}
+          </button>
+          {categories.map((category) => (
+            <button
+              data-jump-filter={category.id}
+              class="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-white/5 border border-white/10 hover:bg-white/15 transition"
+            >
+              {category.icono} {category.nombre} · {dishes.filter((d) => d.categoria_id === category.id).length}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
+        {stats.map((stat) => (
+          <div class="rounded-2xl bg-white/5 border border-white/10 p-4 min-w-[104px] backdrop-blur-sm">
+            <span class={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${stat.iconBg}`}>
+              <Icon name={stat.icon} class="w-4.5 h-4.5" />
+            </span>
+            <p class="text-xl font-black leading-none" id={stat.id}>{stat.value}</p>
+            <p class="text-[11px] text-ink-400 mt-1.5">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Work area ──────────────────────────────────────── -->
+  <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
+    <!-- Dishes manager -->
+    <section id="platos" class="scroll-mt-24">
+      <div class="bg-white rounded-2xl border border-ink-200/80 shadow-sm">
+        <div class="p-5 border-b border-ink-100">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h2 class="text-base font-bold text-ink-900">Carta por categorías</h2>
+              <p class="text-xs text-ink-400 mt-0.5">Toca una categoría para plegarla o desplegarla · Los cambios se guardan en este navegador</p>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <div class="flex bg-ink-100 rounded-lg p-0.5" role="group" aria-label="Vista">
+                <button data-view="grid" class="w-8 h-7 rounded-md bg-ink-900 text-white flex items-center justify-center transition" title="Vista tarjetas" aria-label="Vista tarjetas">▦</button>
+                <button data-view="list" class="w-8 h-7 rounded-md text-ink-500 flex items-center justify-center transition hover:text-ink-700" title="Vista lista" aria-label="Vista lista">☰</button>
+              </div>
+
+              <button
+                id="addDishBtn"
+                class="inline-flex items-center gap-1.5 bg-gradient-to-r from-brand-500 to-brand-600 hover:brightness-105 text-white px-4 py-2 rounded-xl font-semibold shadow-lg shadow-brand-500/25 transition active:scale-[0.98] text-xs"
+              >
+                <Icon name="plus" class="w-4 h-4" />
+                Agregar plato
+              </button>
+            </div>
+          </div>
+
+          <!-- Filter chips -->
+          <div class="flex gap-2 overflow-x-auto mt-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <button data-filter="all" class="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition bg-ink-900 text-white border-ink-900">
+              Todos <span class="ml-1 opacity-70" data-filter-count="all">{totalDishes}</span>
+            </button>
+            {categories.map((category) => (
+              <button
+                data-filter={category.id}
+                class="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition bg-white text-ink-600 border-ink-200 hover:border-ink-300"
+              >
+                {category.icono} {category.nombre}
+                <span class="ml-1 opacity-60" data-filter-count={category.id}>
+                  {dishes.filter((d) => d.categoria_id === category.id).length}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <!-- Grid view: grouped sections -->
+        <div id="dishesGrid" class="p-5 space-y-2"></div>
+        <!-- List view: grouped sections -->
+        <div id="dishesList" class="p-5 space-y-2 hidden"></div>
+      </div>
+
+      <!-- Categories overview -->
+      <section id="categorias" class="mt-6 bg-white rounded-2xl border border-ink-200/80 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-base font-bold text-ink-900">Resumen de categorías</h2>
+            <p class="text-xs text-ink-400 mt-0.5">Toca una tarjeta para filtrar tus platos</p>
+          </div>
+          <button
+            id="addCategoryBtn"
+            class="inline-flex items-center gap-1.5 bg-gradient-to-r from-brand-500 to-brand-600 hover:brightness-105 text-white px-4 py-2 rounded-xl font-semibold shadow-lg shadow-brand-500/25 transition active:scale-[0.98] text-xs"
+          >
+            <Icon name="plus" class="w-4 h-4" />
+            Nueva categoría
+          </button>
+        </div>
+
+        <div id="categoriesGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {categories.map((category) => (
+            <div class="relative group">
+              <button
+                data-jump-filter={category.id}
+                class="w-full bg-white rounded-2xl border border-ink-200/80 p-4 text-center hover:shadow-md hover:border-brand-300 transition text-left"
+              >
+                <span class={`w-11 h-11 rounded-xl bg-gradient-to-br ${category.gradiente} flex items-center justify-center text-xl mb-2`}>
+                  {category.icono}
+                </span>
+                <span class="block font-semibold text-sm text-ink-800 leading-tight">{category.nombre}</span>
+                <span class="block text-[11px] text-ink-400 mt-1" data-category-count={category.id}>
+                  {dishes.filter((d) => d.categoria_id === category.id).length} platos
+                </span>
+              </button>
+              <button
+                data-delete-category={category.id}
+                class="absolute top-2 right-2 w-6 h-6 rounded-full bg-cherry-100 text-cherry-600 text-xs opacity-0 group-hover:opacity-100 transition hover:bg-cherry-200 flex items-center justify-center"
+                aria-label={`Eliminar categoría ${category.nombre}`}
+                title="Eliminar categoría"
+              >×</button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <!-- Configuración -->
+      <section id="config" class="mt-6 bg-white rounded-2xl border border-ink-200/80 shadow-sm p-5 scroll-mt-24">
+        <div class="flex items-center justify-between gap-2 mb-4">
+          <div>
+            <h2 class="text-base font-bold text-ink-900">Configuración</h2>
+            <p class="text-xs text-ink-400 mt-0.5">Personaliza cómo se ve tu carta pública</p>
+          </div>
+          <span id="configStatus" class="text-[11px] font-semibold text-mint-600 opacity-0 transition-opacity">Cambios guardados</span>
+        </div>
+
+        <form id="configForm" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="configName" class="block text-sm font-medium text-ink-700 mb-1.5">Nombre del restaurante</label>
+            <input id="configName" required maxlength="40" placeholder="Mi Restaurante"
+              class="w-full px-4 py-2.5 rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition" />
+          </div>
+          <div>
+            <label for="configSlogan" class="block text-sm font-medium text-ink-700 mb-1.5">Eslogan</label>
+            <input id="configSlogan" maxlength="60" placeholder="Sabor que te hace volver"
+              class="w-full px-4 py-2.5 rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition" />
+          </div>
+          <div class="sm:col-span-2 flex justify-end">
+            <button type="submit"
+              class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:brightness-105 shadow-lg shadow-brand-500/25 transition">
+              Guardar cambios
+            </button>
+          </div>
+        </form>
+      </section>
+    </section>
+
+    <!-- ── Live preview ─────────────────────────────────── -->
+    <aside id="preview" class="xl:sticky xl:top-24 space-y-6">
+      <div class="bg-white rounded-2xl border border-ink-200/80 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-ink-100 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="relative flex w-2 h-2 shrink-0">
+              <span class="absolute inline-flex h-full w-full rounded-full bg-mint-500 opacity-75 animate-ping"></span>
+              <span class="relative inline-flex w-2 h-2 rounded-full bg-mint-500"></span>
+            </span>
+            <div class="min-w-0">
+              <h2 class="font-bold text-sm text-ink-900 leading-tight">Vista previa en vivo</h2>
+              <p class="text-[10px] text-ink-400 leading-tight">Se actualiza con cada cambio</p>
+            </div>
+          </div>
+
+          <div class="flex bg-ink-100 rounded-lg p-0.5 shrink-0">
+            <button id="previewTabMobile" class="w-8 h-7 rounded-md bg-white text-ink-900 flex items-center justify-center text-xs transition" title="Móvil" aria-label="Vista móvil">📱</button>
+            <button id="previewTabDesktop" class="w-8 h-7 rounded-md text-ink-500 flex items-center justify-center text-xs transition hover:text-ink-700" title="Escritorio" aria-label="Vista escritorio">🖥️</button>
+          </div>
+        </div>
+
+        <!-- Mobile frame -->
+        <div id="previewDeviceMobile" class="p-5 pt-4 bg-ink-100/50">
+          <div class="mx-auto w-[220px] rounded-[2rem] bg-ink-800 p-1.5 shadow-2xl">
+            <div class="rounded-[1.6rem] overflow-hidden h-[400px]">
+              <div id="previewMobile" class="h-full"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop frame -->
+        <div id="previewDeviceDesktop" class="hidden p-4 pt-3 bg-ink-100/50">
+          <div class="rounded-xl border border-ink-300/70 overflow-hidden h-[400px] bg-white">
+            <div id="previewDesktop" class="h-full"></div>
+          </div>
+          <p class="text-center text-[10px] text-ink-400 mt-2">Así se ve tu carta en un navegador</p>
+        </div>
+
+        <div class="p-4 border-t border-ink-100">
+          <a
+            href="/menu"
+            class="w-full py-2.5 rounded-xl border border-ink-200 hover:bg-ink-50 font-semibold text-xs text-ink-700 transition flex items-center justify-center gap-2"
+          >
+            <Icon name="eye" class="w-4 h-4" />
+            Abrir carta pública
+          </a>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ── Dish modal ─────────────────────────────────────── -->
+  <div
+    id="dishModal"
+    class="hidden fixed inset-0 z-50 bg-ink-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modalTitle"
+  >
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl animate-pop max-h-[calc(100dvh-2rem)] overflow-y-auto">
+      <div class="flex items-center justify-between p-5 border-b border-ink-100">
+        <h2 id="modalTitle" class="font-bold text-lg text-ink-900">Nuevo plato</h2>
+        <button id="modalClose" class="w-9 h-9 rounded-lg hover:bg-ink-100 flex items-center justify-center text-ink-500 transition" aria-label="Cerrar">
+          <Icon name="close" class="w-5 h-5" />
+        </button>
+      </div>
+
+      <form id="dishForm" class="p-5 space-y-4">
+        <div>
+          <label for="dishName" class="block text-sm font-medium text-ink-700 mb-1.5">Nombre</label>
+          <input id="dishName" required maxlength="60" placeholder="Ej. Lomo Saltado"
+            class="w-full px-4 py-2.5 rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition" />
+        </div>
+
+        <div>
+          <label for="dishDescription" class="block text-sm font-medium text-ink-700 mb-1.5">Descripción</label>
+          <textarea id="dishDescription" rows="2" maxlength="160" placeholder="Ingredientes principales..."
+            class="w-full px-4 py-2.5 rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition resize-none"></textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="dishPrice" class="block text-sm font-medium text-ink-700 mb-1.5">Precio (S/)</label>
+            <input id="dishPrice" type="number" min="0" step="0.5" required placeholder="15"
+              class="w-full px-4 py-2.5 rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition" />
+          </div>
+          <div>
+            <label for="dishCategory" class="block text-sm font-medium text-ink-700 mb-1.5">Categoría</label>
+            <select id="dishCategory"
+              class="w-full px-4 py-2.5 rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition">
+              {categories.map((category) => (
+                <option value={category.id}>{category.icono} {category.nombre}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" id="modalCancel"
+            class="px-4 py-2.5 rounded-xl text-sm font-semibold text-ink-600 hover:bg-ink-100 transition">
+            Cancelar
+          </button>
+          <button type="submit"
+            class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:brightness-105 shadow-lg shadow-brand-500/25 transition">
+            Guardar plato
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <!-- ── Category modal ────────────────────────────────────── -->
+  <div
+    id="categoryModal"
+    class="hidden fixed inset-0 z-50 bg-ink-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="categoryModalTitle"
+  >
+    <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl animate-pop max-h-[calc(100dvh-2rem)] overflow-y-auto">
+      <div class="flex items-center justify-between p-5 border-b border-ink-100">
+        <h2 id="categoryModalTitle" class="font-bold text-lg text-ink-900">Nueva categoría</h2>
+        <button id="categoryModalClose" class="w-9 h-9 rounded-lg hover:bg-ink-100 flex items-center justify-center text-ink-500 transition" aria-label="Cerrar">
+          <Icon name="close" class="w-5 h-5" />
+        </button>
+      </div>
+
+      <form id="categoryForm" class="p-5 space-y-4" novalidate>
+        <!-- Error banner -->
+        <div id="categoryFormError" class="hidden rounded-xl bg-cherry-50 border border-cherry-200 text-cherry-700 text-sm px-4 py-3"></div>
+
+        <div>
+          <label for="catId" class="block text-sm font-medium text-ink-700 mb-1.5">
+            ID único <span class="text-ink-400 font-normal">(ej: c7, bebidas-calientes)</span>
+          </label>
+          <input id="catId" required maxlength="50" placeholder="c7"
+            pattern="[a-zA-Z0-9_\-]+"
+            class="w-full px-4 py-2.5 rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition font-mono text-sm" />
+          <p class="text-[11px] text-ink-400 mt-1">Solo letras, números, guiones y guiones bajos. Sin espacios.</p>
+        </div>
+
+        <div>
+          <label for="catNombre" class="block text-sm font-medium text-ink-700 mb-1.5">Nombre</label>
+          <input id="catNombre" required maxlength="100" placeholder="Ej. Desayunos"
+            class="w-full px-4 py-2.5 rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="catIcono" class="block text-sm font-medium text-ink-700 mb-1.5">Ícono (emoji)</label>
+            <input id="catIcono" required maxlength="20" placeholder="🍳"
+              class="w-full px-4 py-2.5 rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition text-center text-2xl" />
+          </div>
+          <div>
+            <label for="catGradiente" class="block text-sm font-medium text-ink-700 mb-1.5">Color de fondo</label>
+            <select id="catGradiente"
+              class="w-full px-4 py-2.5 rounded-xl border border-ink-200 bg-ink-50/50 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition text-sm">
+              <option value="from-amber-100 to-orange-200">🟠 Naranja</option>
+              <option value="from-red-100 to-rose-200">🔴 Rojo</option>
+              <option value="from-green-100 to-emerald-200">🟢 Verde</option>
+              <option value="from-blue-100 to-sky-200">🔵 Azul</option>
+              <option value="from-purple-100 to-violet-200">🟣 Violeta</option>
+              <option value="from-yellow-100 to-amber-200">🟡 Amarillo</option>
+              <option value="from-pink-100 to-rose-200">🩷 Rosa</option>
+              <option value="from-teal-100 to-cyan-200">🩵 Teal</option>
+              <option value="from-ink-100 to-ink-200">⬜ Gris</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Preview chip -->
+        <div class="rounded-xl bg-ink-50 border border-ink-200 p-4 flex items-center gap-3">
+          <span id="catPreviewIcon" class="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-100 to-orange-200 flex items-center justify-center text-xl shrink-0">🍳</span>
+          <div>
+            <span id="catPreviewName" class="block font-semibold text-sm text-ink-800">Desayunos</span>
+            <span class="block text-[11px] text-ink-400">Vista previa</span>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" id="categoryModalCancel"
+            class="px-4 py-2.5 rounded-xl text-sm font-semibold text-ink-600 hover:bg-ink-100 transition">
+            Cancelar
+          </button>
+          <button type="submit" id="categorySubmitBtn"
+            class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:brightness-105 shadow-lg shadow-brand-500/25 transition disabled:opacity-60 disabled:cursor-not-allowed">
+            Crear categoría
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  // ── Category modal logic ───────────────────────────────────────
+  const categoryModal    = document.getElementById('categoryModal')!;
+  const addCategoryBtn   = document.getElementById('addCategoryBtn')!;
+  const categoryForm     = document.getElementById('categoryForm') as HTMLFormElement;
+  const catModalClose    = document.getElementById('categoryModalClose')!;
+  const catModalCancel   = document.getElementById('categoryModalCancel')!;
+  const catSubmitBtn     = document.getElementById('categorySubmitBtn') as HTMLButtonElement;
+  const catFormError     = document.getElementById('categoryFormError')!;
+  const catPreviewIcon   = document.getElementById('catPreviewIcon')!;
+  const catPreviewName   = document.getElementById('catPreviewName')!;
+  const catIconoInput    = document.getElementById('catIcono') as HTMLInputElement;
+  const catNombreInput   = document.getElementById('catNombre') as HTMLInputElement;
+  const catGradienteInput = document.getElementById('catGradiente') as HTMLSelectElement;
+
+  function openCategoryModal() {
+    categoryModal.classList.remove('hidden');
+    categoryForm.reset();
+    catFormError.classList.add('hidden');
+    catPreviewIcon.textContent = '🍳';
+    catPreviewName.textContent = 'Desayunos';
+    catPreviewIcon.className = `w-11 h-11 rounded-xl bg-gradient-to-br from-amber-100 to-orange-200 flex items-center justify-center text-xl shrink-0`;
+    document.getElementById('catId')?.focus();
+  }
+
+  function closeCategoryModal() {
+    categoryModal.classList.add('hidden');
+  }
+
+  addCategoryBtn?.addEventListener('click', openCategoryModal);
+  catModalClose?.addEventListener('click', closeCategoryModal);
+  catModalCancel?.addEventListener('click', closeCategoryModal);
+  categoryModal?.addEventListener('click', (e) => { if (e.target === categoryModal) closeCategoryModal(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCategoryModal(); });
+
+  // Live preview
+  catIconoInput?.addEventListener('input', () => {
+    catPreviewIcon.textContent = catIconoInput.value || '🍳';
+  });
+  catNombreInput?.addEventListener('input', () => {
+    catPreviewName.textContent = catNombreInput.value || 'Nombre';
+  });
+  catGradienteInput?.addEventListener('change', () => {
+    catPreviewIcon.className = `w-11 h-11 rounded-xl bg-gradient-to-br ${catGradienteInput.value} flex items-center justify-center text-xl shrink-0`;
+  });
+
+  // Submit
+  categoryForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    catFormError.classList.add('hidden');
+    catSubmitBtn.disabled = true;
+    catSubmitBtn.textContent = 'Creando...';
+
+    const id        = (document.getElementById('catId') as HTMLInputElement).value.trim();
+    const nombre    = catNombreInput.value.trim();
+    const icono     = catIconoInput.value.trim();
+    const gradiente = catGradienteInput.value;
+
+    try {
+      // El servidor resuelve el cliente_id desde la sesión.
+      const res = await fetch('/api/categorias/crear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id, nombre, icono, gradiente }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        catFormError.textContent = json.error ?? 'Error al crear la categoría';
+        catFormError.classList.remove('hidden');
+        return;
+      }
+
+      window.location.reload();
+
+      // Añadir la nueva tarjeta al grid sin recargar
+      const grid = document.getElementById('categoriesGrid');
+      if (grid) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'relative group';
+        wrapper.innerHTML = `
+          <button data-jump-filter="${id}" class="w-full bg-white rounded-2xl border border-ink-200/80 p-4 text-center hover:shadow-md hover:border-brand-300 transition text-left">
+            <span class="w-11 h-11 rounded-xl bg-gradient-to-br ${gradiente} flex items-center justify-center text-xl mb-2">${icono}</span>
+            <span class="block font-semibold text-sm text-ink-800 leading-tight">${nombre}</span>
+            <span class="block text-[11px] text-ink-400 mt-1" data-category-count="${id}">0 platos</span>
+          </button>
+          <button data-delete-category="${id}" class="absolute top-2 right-2 w-6 h-6 rounded-full bg-cherry-100 text-cherry-600 text-xs opacity-0 group-hover:opacity-100 transition hover:bg-cherry-200 flex items-center justify-center" aria-label="Eliminar categoría ${nombre}" title="Eliminar categoría">×</button>
+        `;
+        grid.appendChild(wrapper);
+        attachDeleteHandler(wrapper.querySelector(`[data-delete-category="${id}"]`) as HTMLElement, nombre);
+      }
+
+      closeCategoryModal();
+    } catch (err) {
+      catFormError.textContent = 'Error de red. Intenta de nuevo.';
+      catFormError.classList.remove('hidden');
+    } finally {
+      catSubmitBtn.disabled = false;
+      catSubmitBtn.textContent = 'Crear categoría';
+    }
+  });
+
+  // Delete category
+  function attachDeleteHandler(btn: HTMLElement | null, nombre: string) {
+    if (!btn) return;
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.deleteCategory!;
+      if (!confirm(`¿Eliminar la categoría "${nombre || id}"? Los platos asociados quedarán sin categoría.`)) return;
+
+      const res = await fetch(`/api/categorias/crear?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      // Si no hay endpoint DELETE, removemos igual del DOM localmente
+      const card = btn.closest('.relative');
+      card?.remove();
+    });
+  }
+
+  // Attach handlers to server-rendered delete buttons
+  document.querySelectorAll<HTMLElement>('[data-delete-category]').forEach((btn) => {
+    const card = btn.closest('.relative');
+    const name = card?.querySelector('.font-semibold')?.textContent ?? '';
+    attachDeleteHandler(btn, name);
+  });
+</script>
+
+<script>
+  import { initDashboard } from '../../scripts/menu-store';
+  initDashboard();
+</script>

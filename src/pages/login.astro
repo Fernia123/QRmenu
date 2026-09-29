@@ -1,0 +1,244 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Logo from '../components/Logo.astro';
+import Icon from '../components/Icon.astro';
+---
+
+<Layout title="Iniciar sesión · MiCarta">
+  <main class="min-h-screen flex flex-col lg:flex-row">
+    <!-- Left panel (desktop) -->
+    <section class="hidden lg:flex flex-col justify-between w-[42%] bg-ink-900 p-12 relative overflow-hidden">
+      <div class="absolute -top-32 -left-32 w-96 h-96 bg-brand-500/15 rounded-full blur-[120px]"></div>
+      <div class="absolute bottom-0 right-0 w-72 h-72 bg-amber-700/10 rounded-full blur-[100px]"></div>
+
+      <a href="/" aria-label="MiCarta - inicio" class="relative"><Logo onDark /></a>
+
+      <div class="relative max-w-md">
+        <h2 class="font-display text-4xl font-black leading-tight">
+          La carta de tu restaurante, <span class="text-brand-400">siempre al día</span>.
+        </h2>
+        <p class="text-ink-300 mt-5 leading-relaxed">
+          Actualiza platos y precios en tiempo real, comparte tu QR y conoce
+          qué platos aman tus clientes.
+        </p>
+
+        <ul class="mt-10 space-y-4">
+          {['Actualización instantánea', 'Código QR incluido', 'Estadísticas de visitas'].map((item) => (
+            <li class="flex items-center gap-3 text-sm text-ink-200">
+              <span class="w-6 h-6 rounded-full bg-brand-500/15 text-brand-400 flex items-center justify-center">
+                <Icon name="check" class="w-3.5 h-3.5" />
+              </span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p class="relative text-xs text-ink-500">© {new Date().getFullYear()} MiCarta</p>
+    </section>
+
+    <!-- Right: form -->
+    <section class="flex-1 flex items-center justify-center px-4 py-12 relative">
+      <div class="absolute inset-0 overflow-hidden pointer-events-none lg:hidden" aria-hidden="true">
+        <div class="absolute -top-32 right-0 w-96 h-96 bg-brand-500/10 rounded-full blur-[120px]"></div>
+      </div>
+
+      <div class="relative w-full max-w-md">
+        <div class="lg:hidden text-center mb-8">
+          <a href="/" class="inline-block"><Logo size="lg" onDark /></a>
+        </div>
+
+        <h1 class="font-display text-3xl font-black tracking-tight">Bienvenido de nuevo</h1>
+        <p class="mt-2 text-sm text-ink-400 mb-8">Ingresa a tu cuenta para continuar</p>
+
+        <form id="loginForm" class="space-y-5" novalidate>
+          <div>
+            <label for="email" class="block text-sm font-medium text-ink-700 mb-1.5">
+              Correo electrónico
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autocomplete="email"
+              required
+              placeholder="tu@email.com"
+              class="w-full px-4 py-3 rounded-xl bg-ink-100/60 border border-ink-200 text-ink-900 placeholder-ink-400 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition"
+            />
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-medium text-ink-700 mb-1.5">
+              Contraseña
+            </label>
+            <div class="relative">
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+                placeholder="••••••••"
+                class="w-full px-4 py-3 pr-12 rounded-xl bg-ink-100/60 border border-ink-200 text-ink-900 placeholder-ink-400 outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent transition"
+              />
+              <button
+                type="button"
+                id="togglePassword"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600 transition"
+                aria-label="Mostrar u ocultar contraseña"
+              >
+                <span id="eyeIcon"><Icon name="eye" class="w-5 h-5" /></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-y-2 gap-x-4 text-sm">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" class="w-4 h-4 rounded border-ink-300 text-brand-500 focus:ring-brand-400" />
+              <span class="text-ink-600">Recordarme</span>
+            </label>
+          </div>
+
+          <p id="loginError" class="hidden text-sm text-cherry-600 bg-cherry-100 border border-cherry-500/20 rounded-xl px-4 py-3"></p>
+
+          <button
+            type="submit"
+            class="w-full py-3 rounded-xl bg-gradient-to-r from-brand-500 to-brand-600 hover:brightness-105 text-white font-semibold shadow-lg shadow-brand-500/25 transition active:scale-[0.99]"
+          >
+            Iniciar sesión
+          </button>
+        </form>
+
+        <!-- Ayuda -->
+        <div class="mt-8 p-4 bg-ink-900/5 border border-ink-200 rounded-2xl text-center">
+          <p class="text-xs text-ink-500">
+            ¿Problemas para ingresar? Contacta al administrador de la plataforma.
+          </p>
+        </div>
+
+        <p class="text-center text-xs text-ink-500 mt-8">© {new Date().getFullYear()} MiCarta</p>
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<script>
+  import { supabase , isSupabaseConfigured } from "../db/supabase";
+  import { redirectIfAuthed } from "../scripts/auth";
+
+  redirectIfAuthed();
+
+  const form = document.getElementById('loginForm') as HTMLFormElement;
+  const emailInput = document.getElementById('email') as HTMLInputElement;
+  const passwordInput = document.getElementById('password') as HTMLInputElement;
+  const errorBox = document.getElementById('loginError') as HTMLParagraphElement;
+  const submitBtn = form?.querySelector('button[type="submit"]') as HTMLButtonElement;
+  const toggleBtn = document.getElementById('togglePassword');
+  const eyeIcon = document.getElementById('eyeIcon');
+
+  // ── Mostrar/ocultar contraseña ────────────────────────────────
+  const EYE_SVG = eyeIcon?.innerHTML ?? '';
+  const EYE_OFF_SVG =
+    '<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M3 3l18 18" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  toggleBtn?.addEventListener('click', () => {
+    const show = passwordInput.type === 'password';
+    passwordInput.type = show ? 'text' : 'password';
+    if (eyeIcon) eyeIcon.innerHTML = show ? EYE_OFF_SVG : EYE_SVG;
+  });
+
+  // ── Helpers de UI ─────────────────────────────────────────────
+  function showError(msg: string) {
+    errorBox.textContent = msg;
+    errorBox.classList.remove('hidden');
+  }
+
+  function setLoading(loading: boolean) {
+    submitBtn.disabled = loading;
+    submitBtn.textContent = loading ? 'Iniciando sesión…' : 'Iniciar sesión';
+  }
+
+  // ── Login ─────────────────────────────────────────────────────
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorBox.classList.add('hidden');
+
+    const email = emailInput.value.trim().toLowerCase();
+    const password = passwordInput.value;
+
+    if (!email || !password) {
+      showError('Completa todos los campos.');
+      return;
+    }
+
+    // Sin Supabase configurado no hay forma de autenticar
+    if (!isSupabaseConfigured || !supabase) {
+      showError('El servicio de autenticación no está configurado.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 1. Autenticar con Supabase Auth
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error || !data.user) {
+        showError('Correo o contraseña incorrectos.');
+        return;
+      }
+
+      const user = data.user;
+
+      // 2. Obtener rol desde la tabla "perfiles" (fuente de verdad).
+      //    Fallback a user_metadata por si el trigger aún no corrió.
+      let perfil: { rol: string } | null = null;
+      try {
+        const { data: p } = await supabase
+          .from('perfiles')
+          .select('rol')
+          .eq('id', user.id)
+          .maybeSingle();
+        perfil = p;
+      } catch (err) {
+        console.warn('[login] no se pudo leer perfiles:', err);
+      }
+
+      // Normalizar "admin." → "admin" (el trigger anterior guardaba el rol con punto).
+      const rawRole = perfil?.rol ?? user.user_metadata?.role ?? 'cliente';
+      const role = (rawRole === 'admin' || rawRole === 'admin.') ? 'admin' : 'cliente';
+
+      // 3. Para clientes, verificar que la cuenta esté activa en "clientes"
+      //    (relación por user_id, no por id).
+      if (role === 'cliente') {
+        const { data: cliente } = await supabase
+          .from('clientes')
+          .select('id, estado')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (cliente && cliente.estado === false) {
+          await supabase.auth.signOut();
+          showError('Tu cuenta está desactivada. Contacta al administrador.');
+          return;
+        }
+        // Si aún no tiene fila en clientes, dejamos pasar al dashboard vacío.
+      }
+
+      // 4. Redirigir según rol
+      console.log('Valor de role recibido:', role);
+      console.log('Tipo de dato:', typeof role);
+      if (role === 'admin') {
+        window.location.href = '/admin';
+      } else {
+        window.location.href = '/dashboard';
+      }
+
+    } catch (err) {
+      console.error('Error al iniciar sesión:', err);
+      showError('Ocurrió un error inesperado. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  });
+</script>

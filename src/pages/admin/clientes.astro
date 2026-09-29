@@ -1,0 +1,636 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/Icon.astro';
+---
+
+<AdminLayout title="Clientes · Admin MiCarta">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-display font-black text-white">Clientes</h1>
+      <p class="text-ink-400 mt-1.5 text-sm">Gestiona todos los restaurantes registrados en la plataforma</p>
+    </div>
+    <button 
+      id="btn-nuevo-cliente"
+      class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-ink-950 font-bold text-sm hover:brightness-110 shadow-lg shadow-amber-500/20 transition active:scale-[0.98] cursor-pointer"
+    >
+      <Icon name="plus" class="w-4 h-4" />
+      Nuevo cliente
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="flex flex-wrap gap-3 mb-6">
+    <div class="relative flex-1 min-w-[200px] max-w-md">
+      <Icon name="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-500" />
+      <input
+        type="search"
+        id="input-busqueda"
+        placeholder="Buscar por restaurante, slug o teléfono..."
+        class="w-full bg-ink-900 border border-ink-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white placeholder-ink-500 outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition"
+      />
+    </div>
+    <select id="filtro-estado" class="bg-ink-900 border border-ink-800 rounded-xl px-4 py-2.5 text-sm text-ink-300 outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer">
+      <option value="">Todos los estados</option>
+      <option value="true">Activos</option>
+      <option value="false">Inactivos</option>
+    </select>
+  </div>
+
+  <!-- Table -->
+  <div class="bg-ink-900 border border-ink-800 rounded-2xl overflow-hidden shadow-xl">
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead>
+          <tr class="text-left text-xs text-ink-500 uppercase tracking-wider border-b border-ink-800 bg-ink-950/40">
+            <th class="px-5 py-4">Cliente</th>
+            <th class="px-5 py-4">Estado</th>
+            <th class="px-5 py-4">Inicio / Pago</th>
+            <th class="px-5 py-4">Teléfono</th>
+            <th class="px-5 py-4 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-clientes-body">
+          <!-- Dinámico renderizado por JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination / Summary -->
+    <div class="p-4 border-t border-ink-800 flex items-center justify-between text-xs text-ink-400">
+      <p id="resumen-clientes">Cargando clientes...</p>
+      <div id="badge-db-status" class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-ink-800 text-ink-300 text-[11px]">
+        <span class="w-2 h-2 rounded-full bg-mint-400 animate-pulse"></span>
+        <span id="texto-db">DB lista</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Crear / Editar Cliente -->
+  <dialog 
+    id="modal-cliente" 
+    class="fixed inset-0 m-auto max-w-md w-[90%] md:w-full bg-transparent p-0 border-0 outline-none backdrop:bg-black/70 backdrop:backdrop-blur-sm animate-fade-in"
+  >
+    <div class="bg-ink-900 border border-ink-700/80 rounded-2xl p-6 shadow-2xl text-white">
+      <div class="flex items-center justify-between mb-5">
+        <h3 id="modal-titulo" class="text-lg font-bold text-white flex items-center gap-2">
+          <span>Nuevo Cliente</span>
+        </h3>
+        <button 
+          type="button"
+          id="btn-cerrar-modal" 
+          class="text-ink-400 hover:text-white p-1.5 rounded-lg hover:bg-ink-800 transition cursor-pointer"
+          aria-label="Cerrar modal"
+        >
+          <Icon name="close" class="w-5 h-5" />
+        </button>
+      </div>
+
+      <form id="form-cliente" class="space-y-4" novalidate>
+        <input type="hidden" id="cliente-id" name="id" />
+
+        <div>
+          <label for="cliente-nombre" class="block text-xs font-medium text-ink-300 mb-1.5">Nombre del restaurante</label>
+          <input 
+            type="text" 
+            id="cliente-nombre" 
+            name="nombre_restaurante" 
+            required 
+            placeholder="Ej: Restaurante Juan"
+            class="w-full bg-ink-950 border border-ink-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-ink-600 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 outline-none transition"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="cliente-slug" class="block text-xs font-medium text-ink-300 mb-1.5">Slug (URL amigable)</label>
+            <input 
+              type="text" 
+              id="cliente-slug" 
+              name="slug" 
+              placeholder="auto"
+              class="w-full bg-ink-950 border border-ink-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-ink-600 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 outline-none transition"
+            />
+            <p class="text-[11px] text-ink-500 mt-1">Se genera solo si se deja vacío.</p>
+          </div>
+
+          <div>
+            <label for="cliente-telefono" class="block text-xs font-medium text-ink-300 mb-1.5">Teléfono</label>
+            <input 
+              type="tel" 
+              id="cliente-telefono" 
+              name="telefono" 
+              placeholder="+51 999 111 222"
+              class="w-full bg-ink-950 border border-ink-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-ink-600 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 outline-none transition"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="cliente-fecha-inicio" class="block text-xs font-medium text-ink-300 mb-1.5">Fecha de inicio</label>
+            <input 
+              type="date" 
+              id="cliente-fecha-inicio" 
+              name="fecha_inicio" 
+              class="w-full bg-ink-950 border border-ink-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:ring-2 focus:ring-amber-500/50 outline-none transition"
+            />
+          </div>
+          <div>
+            <label for="cliente-fecha-pago" class="block text-xs font-medium text-ink-300 mb-1.5">Fecha de pago</label>
+            <input 
+              type="date" 
+              id="cliente-fecha-pago" 
+              name="fecha_pago" 
+              class="w-full bg-ink-950 border border-ink-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:ring-2 focus:ring-amber-500/50 outline-none transition"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label for="cliente-estado" class="block text-xs font-medium text-ink-300 mb-1.5">Estado</label>
+          <select 
+            id="cliente-estado" 
+            name="estado" 
+            class="w-full bg-ink-950 border border-ink-800 rounded-xl px-3 py-2.5 text-sm text-white focus:ring-2 focus:ring-amber-500/50 outline-none cursor-pointer"
+          >
+            <option value="true">Activo</option>
+            <option value="false">Inactivo</option>
+          </select>
+        </div>
+
+        <!-- Email + contraseña: solo visibles al crear -->
+        <div id="campo-email-wrapper">
+          <label for="cliente-email" class="block text-xs font-medium text-ink-300 mb-1.5">Correo electrónico (acceso)</label>
+          <input 
+            type="email" 
+            id="cliente-email" 
+            name="email" 
+            required 
+            placeholder="ejemplo@restaurante.com"
+            class="w-full bg-ink-950 border border-ink-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-ink-600 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 outline-none transition"
+          />
+        </div>
+
+        <div id="campo-password-wrapper">
+          <label for="cliente-password" class="block text-xs font-medium text-ink-300 mb-1.5">
+            Contraseña de acceso
+          </label>
+          <input 
+            type="password" 
+            id="cliente-password" 
+            name="password"
+            minlength="6"
+            placeholder="Mínimo 6 caracteres"
+            class="w-full bg-ink-950 border border-ink-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-ink-600 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 outline-none transition"
+          />
+          <p class="text-[11px] text-ink-500 mt-1">El cliente usará este correo y contraseña para acceder a su menú.</p>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4 border-t border-ink-800">
+          <button 
+            type="button" 
+            id="btn-cancelar-modal" 
+            class="px-4 py-2.5 rounded-xl bg-ink-800 hover:bg-ink-700 text-ink-300 text-sm font-medium transition cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button 
+            type="submit" 
+            id="btn-submit-modal"
+            class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-ink-950 font-bold text-sm hover:brightness-110 transition shadow-lg shadow-amber-500/20 cursor-pointer"
+          >
+            Guardar cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Modal: Ver Detalles del Cliente -->
+  <dialog 
+    id="modal-detalles" 
+    class="fixed inset-0 m-auto max-w-md w-[90%] md:w-full bg-transparent p-0 border-0 outline-none backdrop:bg-black/70 backdrop:backdrop-blur-sm animate-fade-in"
+  >
+    <div class="bg-ink-900 border border-ink-700/80 rounded-2xl p-6 shadow-2xl text-white">
+      <div class="flex items-center justify-between mb-4 border-b border-ink-800 pb-3">
+        <h3 class="text-lg font-bold text-amber-400 flex items-center gap-2">
+          <span id="det-restaurante">Detalles del Cliente</span>
+        </h3>
+        <button 
+          type="button"
+          id="btn-cerrar-detalles" 
+          class="text-ink-400 hover:text-white p-1 rounded-lg hover:bg-ink-800 transition cursor-pointer"
+        >
+          <Icon name="close" class="w-5 h-5" />
+        </button>
+      </div>
+
+      <div class="space-y-3.5 text-sm">
+        <div class="flex justify-between py-1 border-b border-ink-800/60">
+          <span class="text-ink-400">ID Cliente:</span>
+          <span id="det-id" class="font-mono text-ink-200 text-xs">--</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-ink-800/60">
+          <span class="text-ink-400">Restaurante:</span>
+          <span id="det-nombre" class="font-semibold text-white">--</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-ink-800/60">
+          <span class="text-ink-400">Slug:</span>
+          <span id="det-slug" class="font-mono text-amber-300 text-xs">--</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-ink-800/60">
+          <span class="text-ink-400">Teléfono:</span>
+          <span id="det-telefono" class="text-white">--</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-ink-800/60">
+          <span class="text-ink-400">Fecha de inicio:</span>
+          <span id="det-fecha-inicio" class="text-white">--</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-ink-800/60">
+          <span class="text-ink-400">Fecha de pago:</span>
+          <span id="det-fecha-pago" class="text-white">--</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-ink-800/60">
+          <span class="text-ink-400">Estado de cuenta:</span>
+          <span id="det-estado" class="font-bold text-xs px-2 py-0.5 rounded bg-mint-500/20 text-mint-400">--</span>
+        </div>
+        <div class="flex justify-between py-1">
+          <span class="text-ink-400">Platos registrados:</span>
+          <span id="det-platos" class="font-semibold text-white">0</span>
+        </div>
+      </div>
+
+      <div class="pt-5 mt-2 border-t border-ink-800 flex justify-end">
+        <button 
+          id="btn-ok-detalles" 
+          class="px-5 py-2 rounded-xl bg-ink-800 hover:bg-ink-700 text-white font-medium text-xs transition cursor-pointer"
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+</AdminLayout>
+
+<script>
+  
+  import { 
+    fetchClientes, 
+    fetchPlatos, 
+    updateCliente, 
+    toggleClienteEstado, 
+    deleteCliente, 
+    type Cliente 
+  } from '../../db/database';
+  import { supabase, isSupabaseConfigured } from '../../db/supabase';
+
+  let clientesList: Cliente[] = [];
+
+  // ── Elementos DOM ────────────────────────────────────────────────
+  const tableBody          = document.getElementById('tabla-clientes-body') as HTMLElement;
+  const resumenText        = document.getElementById('resumen-clientes') as HTMLElement;
+  const textoDb            = document.getElementById('texto-db') as HTMLElement;
+  const searchInput        = document.getElementById('input-busqueda') as HTMLInputElement;
+  const filtroEstado       = document.getElementById('filtro-estado') as HTMLSelectElement;
+  const modalCliente       = document.getElementById('modal-cliente') as HTMLDialogElement;
+  const formCliente        = document.getElementById('form-cliente') as HTMLFormElement;
+  const modalTitulo        = document.getElementById('modal-titulo') as HTMLElement;
+  const btnNuevo           = document.getElementById('btn-nuevo-cliente');
+  const btnCerrarModal     = document.getElementById('btn-cerrar-modal');
+  const btnCancelarModal   = document.getElementById('btn-cancelar-modal');
+  const btnSubmitModal     = document.getElementById('btn-submit-modal') as HTMLButtonElement;
+  const modalDetalles      = document.getElementById('modal-detalles') as HTMLDialogElement;
+  const btnCerrarDetalles  = document.getElementById('btn-cerrar-detalles');
+  const btnOkDetalles      = document.getElementById('btn-ok-detalles');
+  const campoEmailWrapper  = document.getElementById('campo-email-wrapper') as HTMLElement;
+  const campoPasswordWrapper = document.getElementById('campo-password-wrapper') as HTMLElement;
+  const passwordInput      = document.getElementById('cliente-password') as HTMLInputElement;
+
+  // ── Estado de DB ─────────────────────────────────────────────────
+  if (textoDb) {
+    textoDb.textContent = isSupabaseConfigured ? 'Supabase Conectado' : 'Modo Local / Demo';
+  }
+
+  function todayISO(offsetYears = 0): string {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + offsetYears);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function slugify(name: string): string {
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 80) || 'restaurante';
+  }
+
+  // ── Cargar clientes ──────────────────────────────────────────────
+  async function cargarClientes() {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="5" class="px-5 py-8 text-center text-ink-400">
+          <div class="inline-block animate-spin w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full mb-2"></div>
+          <p class="text-xs">Cargando clientes de la base de datos...</p>
+        </td>
+      </tr>
+    `;
+    clientesList = await fetchClientes();
+    renderTabla();
+  }
+
+  const fmtFecha = (v?: string | null) => (v && v !== '') ? String(v).slice(0, 10) : '—';
+
+  // ── Renderizar tabla ─────────────────────────────────────────────
+  function renderTabla() {
+    const search = searchInput?.value.toLowerCase().trim() || '';
+    const estado = filtroEstado?.value || '';
+
+    const filtrados = clientesList.filter((c) => {
+      const matchSearch =
+        !search ||
+        (c.nombre_restaurante ?? '').toLowerCase().includes(search) ||
+        (c.slug ?? '').toLowerCase().includes(search) ||
+        (c.telefono ?? '').toLowerCase().includes(search);
+      const matchEstado = estado === '' || String(c.estado === true) === estado;
+      return matchSearch && matchEstado;
+    });
+
+    if (resumenText) {
+      resumenText.textContent = `Mostrando ${filtrados.length} de ${clientesList.length} clientes`;
+    }
+
+    if (filtrados.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="5" class="px-5 py-8 text-center text-ink-500 text-sm">
+            No se encontraron clientes que coincidan con los filtros.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tableBody.innerHTML = filtrados.map((c) => {
+      const activo = c.estado === true;
+      return `
+      <tr class="border-b border-ink-800/50 hover:bg-ink-800/30 transition">
+        <td class="px-5 py-4">
+          <div class="flex items-center gap-3">
+            <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/20 text-amber-400 flex items-center justify-center font-bold text-sm shrink-0 shadow-sm border border-amber-500/20">
+              ${c.nombre_restaurante.charAt(0).toUpperCase()}
+            </span>
+            <div>
+              <p class="font-medium text-sm text-white">${escapeHtml(c.nombre_restaurante)}</p>
+              <p class="text-xs text-ink-400 font-mono">/${escapeHtml(c.slug)}</p>
+            </div>
+          </div>
+        </td>
+        <td class="px-5 py-4">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+            activo ? 'bg-mint-500/10 text-mint-400 border border-mint-500/20' : 'bg-cherry-500/10 text-cherry-400 border border-cherry-500/20'
+          }">
+            <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+            ${activo ? 'Activo' : 'Inactivo'}
+          </span>
+        </td>
+        <td class="px-5 py-4 text-sm text-ink-300">
+          <p>${fmtFecha(c.fecha_inicio)}</p>
+          <p class="text-xs text-ink-500">hasta ${fmtFecha(c.fecha_pago)}</p>
+        </td>
+        <td class="px-5 py-4 text-sm text-ink-300">${escapeHtml(c.telefono ?? '—')}</td>
+        <td class="px-5 py-4 text-right">
+          <div class="flex items-center justify-end gap-1.5">
+            <button data-action="ver" data-id="${c.id}"
+              class="w-8 h-8 rounded-lg border border-ink-700 text-ink-400 hover:text-white hover:bg-ink-800 transition flex items-center justify-center cursor-pointer" 
+              title="Ver detalles">👁️</button>
+            <button data-action="editar" data-id="${c.id}"
+              class="w-8 h-8 rounded-lg border border-ink-700 text-ink-400 hover:text-white hover:bg-ink-800 transition flex items-center justify-center cursor-pointer" 
+              title="Editar cliente">✏️</button>
+            <button data-action="toggle" data-id="${c.id}"
+              class="w-8 h-8 rounded-lg border border-ink-700 transition flex items-center justify-center cursor-pointer ${
+                activo ? 'text-ink-400 hover:text-cherry-400 hover:bg-cherry-500/10' : 'text-mint-400 hover:bg-mint-500/10'
+              }" 
+              title="${activo ? 'Desactivar cuenta' : 'Activar cuenta'}">
+              ${activo ? '🚫' : '✅'}
+            </button>
+            <button data-action="eliminar" data-id="${c.id}"
+              class="w-8 h-8 rounded-lg border border-ink-700 text-ink-400 hover:text-cherry-400 hover:bg-cherry-500/10 transition flex items-center justify-center cursor-pointer" 
+              title="Eliminar cliente">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function escapeHtml(str: string): string {
+    return str.replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m] || m));
+  }
+
+  // ── Mostrar/limpiar error en el modal ────────────────────────────
+  function mostrarErrorModal(msg: string) {
+    let errorEl = document.getElementById('modal-error') as HTMLElement;
+    if (!errorEl) {
+      errorEl = document.createElement('p');
+      errorEl.id = 'modal-error';
+      errorEl.className = 'text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3';
+      formCliente.prepend(errorEl);
+    }
+    errorEl.textContent = msg;
+    errorEl.style.display = '';
+  }
+
+  function limpiarErrorModal() {
+    const el = document.getElementById('modal-error');
+    if (el) el.style.display = 'none';
+  }
+
+  // ── Filtros ──────────────────────────────────────────────────────
+  searchInput?.addEventListener('input', renderTabla);
+  filtroEstado?.addEventListener('change', renderTabla);
+
+  // ── Abrir modal Crear ────────────────────────────────────────────
+  btnNuevo?.addEventListener('click', () => {
+    formCliente.reset();
+    limpiarErrorModal();
+    (document.getElementById('cliente-id') as HTMLInputElement).value = '';
+    (document.getElementById('cliente-fecha-inicio') as HTMLInputElement).value = todayISO();
+    (document.getElementById('cliente-fecha-pago') as HTMLInputElement).value = todayISO(1);
+    modalTitulo.querySelector('span')!.textContent = 'Nuevo Cliente';
+    campoEmailWrapper.style.display = '';
+    campoPasswordWrapper.style.display = '';
+    passwordInput.required = true;
+    (document.getElementById('cliente-email') as HTMLInputElement).required = true;
+    modalCliente.showModal();
+  });
+
+  // ── Cerrar modales ───────────────────────────────────────────────
+  const cerrarModalForm = () => { limpiarErrorModal(); modalCliente.close(); };
+  btnCerrarModal?.addEventListener('click', cerrarModalForm);
+  btnCancelarModal?.addEventListener('click', cerrarModalForm);
+
+  const cerrarModalDetalles = () => modalDetalles.close();
+  btnCerrarDetalles?.addEventListener('click', cerrarModalDetalles);
+  btnOkDetalles?.addEventListener('click', cerrarModalDetalles);
+
+  // ── Submit del formulario ────────────────────────────────────────
+  formCliente?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    limpiarErrorModal();
+
+    btnSubmitModal.disabled = true;
+    btnSubmitModal.textContent = 'Guardando...';
+
+    const id          = (document.getElementById('cliente-id') as HTMLInputElement).value;
+    const nombre      = (document.getElementById('cliente-nombre') as HTMLInputElement).value.trim();
+    const telefono    = (document.getElementById('cliente-telefono') as HTMLInputElement).value.trim() || null;
+    const slugRaw     = (document.getElementById('cliente-slug') as HTMLInputElement).value.trim().toLowerCase();
+    const email       = (document.getElementById('cliente-email') as HTMLInputElement).value.trim().toLowerCase();
+    const password    = passwordInput.value;
+    const fechaInicio = (document.getElementById('cliente-fecha-inicio') as HTMLInputElement).value;
+    const fechaPago   = (document.getElementById('cliente-fecha-pago') as HTMLInputElement).value;
+    const estado      = (document.getElementById('cliente-estado') as HTMLSelectElement).value === 'true';
+
+    if (!nombre) {
+      mostrarErrorModal('El nombre del restaurante es obligatorio.');
+      btnSubmitModal.disabled = false;
+      btnSubmitModal.textContent = 'Guardar cambios';
+      return;
+    }
+
+    try {
+      if (id) {
+        // ── Editar cliente existente ────────────────────────────
+        const patch: Record<string, unknown> = { nombre_restaurante: nombre, estado };
+        if (telefono !== null) patch.telefono = telefono;
+        if (slugRaw) {
+          if (!/^[a-z0-9-]{2,80}$/.test(slugRaw)) {
+            mostrarErrorModal('Slug inválido. Solo minúsculas, números y guiones.');
+            btnSubmitModal.disabled = false;
+            btnSubmitModal.textContent = 'Guardar cambios';
+            return;
+          }
+          patch.slug = slugRaw;
+        }
+        if (fechaInicio) patch.fecha_inicio = fechaInicio;
+        if (fechaPago) patch.fecha_pago = fechaPago;
+        await updateCliente(id, patch as any);
+        cerrarModalForm();
+        await cargarClientes();
+      } else {
+        // ── Crear nuevo cliente con cuenta en Supabase Auth ─────
+        if (!email || !password || password.length < 6) {
+          mostrarErrorModal('El correo y una contraseña de al menos 6 caracteres son obligatorios.');
+          btnSubmitModal.disabled = false;
+          btnSubmitModal.textContent = 'Guardar cambios';
+          return;
+        }
+
+        const slug = slugRaw || slugify(nombre);
+
+        const res = await fetch('/api/admin/crear-cliente', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+          nombre_restaurante: nombre, 
+          telefono,
+          fechaPago, 
+          email, 
+          password, 
+          estado, 
+          slug 
+        }),
+        });
+        
+
+        const result = await res.json();
+
+        if (!res.ok || result.error) {
+          mostrarErrorModal(result.error || 'Error al crear el cliente. Intenta de nuevo.');
+          btnSubmitModal.disabled = false;
+          btnSubmitModal.textContent = 'Guardar cambios';
+          return;
+        }
+
+        cerrarModalForm();
+        await cargarClientes();
+      }
+    } catch (err) {
+      console.error('Error al guardar cliente:', err);
+      mostrarErrorModal('Ocurrió un error inesperado. Intenta de nuevo.');
+    } finally {
+      btnSubmitModal.disabled = false;
+      btnSubmitModal.textContent = 'Guardar cambios';
+    }
+  });
+
+  // ── Acciones en la tabla ─────────────────────────────────────────
+  tableBody?.addEventListener('click', async (e) => {
+    const btn = (e.target as HTMLElement).closest('button[data-action]') as HTMLButtonElement;
+    if (!btn) return;
+
+    const action = btn.getAttribute('data-action');
+    const id     = btn.getAttribute('data-id');
+    if (!id) return;
+
+    const cliente = clientesList.find(c => c.id === id);
+
+    if (action === 'ver' && cliente) {
+      (document.getElementById('det-id') as HTMLElement).textContent       = cliente.id;
+      (document.getElementById('det-restaurante') as HTMLElement).textContent = cliente.nombre_restaurante;
+      (document.getElementById('det-nombre') as HTMLElement).textContent   = cliente.nombre_restaurante;
+      (document.getElementById('det-slug') as HTMLElement).textContent     = cliente.slug;
+      (document.getElementById('det-telefono') as HTMLElement).textContent = cliente.telefono ?? '—';
+      (document.getElementById('det-fecha-inicio') as HTMLElement).textContent = fmtFecha(cliente.fecha_inicio);
+      (document.getElementById('det-fecha-pago') as HTMLElement).textContent  = fmtFecha(cliente.fecha_pago);
+      const estadoEl = document.getElementById('det-estado') as HTMLElement;
+      const activo = cliente.estado === true;
+      estadoEl.textContent = activo ? 'Activo' : 'Inactivo';
+      estadoEl.className = `font-bold text-xs px-2 py-0.5 rounded ${activo ? 'bg-mint-500/20 text-mint-400' : 'bg-cherry-500/20 text-cherry-400'}`;
+      (document.getElementById('det-platos') as HTMLElement).textContent = '0';
+      modalDetalles.showModal();
+
+      // Refresca el conteo real de platos consultando la base de datos.
+      try {
+        const platosDeCliente = await fetchPlatos({ clienteId: cliente.id });
+        (document.getElementById('det-platos') as HTMLElement).textContent = String(platosDeCliente.length);
+      } catch {
+        // Se mantiene el valor cargado en la tabla si falla la consulta.
+      }
+
+    } else if (action === 'editar' && cliente) {
+      limpiarErrorModal();
+      (document.getElementById('cliente-id') as HTMLInputElement).value  = cliente.id;
+      (document.getElementById('cliente-nombre') as HTMLInputElement).value = cliente.nombre_restaurante;
+      (document.getElementById('cliente-slug') as HTMLInputElement).value   = cliente.slug;
+      (document.getElementById('cliente-telefono') as HTMLInputElement).value = cliente.telefono ?? '';
+      (document.getElementById('cliente-fecha-inicio') as HTMLInputElement).value = fmtFecha(cliente.fecha_inicio);
+      (document.getElementById('cliente-fecha-pago') as HTMLInputElement).value  = fmtFecha(cliente.fecha_pago);
+      (document.getElementById('cliente-estado') as HTMLSelectElement).value = cliente.estado === true ? 'true' : 'false';
+      modalTitulo.querySelector('span')!.textContent = 'Editar Cliente';
+      // Email + contraseña solo al crear (no se cambian desde aquí)
+      campoEmailWrapper.style.display = 'none';
+      campoPasswordWrapper.style.display = 'none';
+      passwordInput.required = false;
+      passwordInput.value = '';
+      modalCliente.showModal();
+
+    } else if (action === 'toggle') {
+      await toggleClienteEstado(id);
+      await cargarClientes();
+
+    } else if (action === 'eliminar' && cliente) {
+      if (confirm(`¿Eliminar al cliente "${cliente.nombre_restaurante}"?\nEsta acción no se puede deshacer.`)) {
+        await deleteCliente(id);
+        await cargarClientes();
+      }
+    }
+  });
+
+  // ── Inicio ───────────────────────────────────────────────────────
+  cargarClientes();
+</script>

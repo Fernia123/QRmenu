@@ -1,0 +1,212 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { fetchClientes, fetchPlatos, fetchCategorias } from '../../db/database';
+
+let clientes: any[] = [];
+let platos: any[] = [];
+let categorias: any[] = [];
+
+try {
+  const [cli, pla, cat] = await Promise.all([
+    fetchClientes(),
+    fetchPlatos(),
+    fetchCategorias(),
+  ]);
+  clientes = cli;
+  platos = pla;
+  categorias = cat;
+} catch (e) {
+  console.error('Error cargando estadísticas:', e);
+}
+
+const totalClientes = clientes.length;
+const clientesActivos = clientes.filter((c: any) => c.estado === true).length;
+const totalPlatos = platos.length;
+const platosDisponibles = platos.filter((p: any) => p.disponible === true).length;
+
+const stats = [
+  { title: 'Clientes registrados', value: String(totalClientes), icon: 'users', color: 'amber', footer: 'En plataforma' },
+  { title: 'Clientes activos', value: String(clientesActivos), icon: 'check', color: 'mint', footer: 'Cuentas operativas' },
+  { title: 'Total de platos', value: String(totalPlatos), icon: 'dishes', color: 'purple', footer: 'Configurados' },
+  { title: 'Platos disponibles', value: String(platosDisponibles), icon: 'check', color: 'blue', footer: 'En la carta pública' },
+];
+
+const countsByCat = categorias.map((cat: any) => ({
+  name: cat.nombre,
+  count: platos.filter((p: any) => p.categoria_id === cat.id).length,
+}));
+const maxCatCount = Math.max(1, ...countsByCat.map((c) => c.count));
+const chartBars = countsByCat.map((c) => ({
+  name: c.name.length <= 5 ? c.name : c.name.slice(0, 3).toUpperCase(),
+  height: Math.round((c.count / maxCatCount) * 100),
+  count: c.count,
+}));
+
+const clientesPorId = new Map(clientes.map((c: any) => [c.id, c]));
+
+const countsPorCliente = new Map<string, number>();
+for (const p of platos) {
+  if (p.cliente_id) {
+    countsPorCliente.set(p.cliente_id, (countsPorCliente.get(p.cliente_id) || 0) + 1);
+  }
+}
+
+const restaurantesTop = [...clientes]
+  .sort((a: any, b: any) => (countsPorCliente.get(b.id) || 0) - (countsPorCliente.get(a.id) || 0))
+  .slice(0, 5)
+  .map((c: any) => ({
+    nombre: c.nombre_restaurante,
+    platos: countsPorCliente.get(c.id) || 0,
+    estado: c.estado === true,
+  }));
+
+const platosRecientes = platos.slice(0, 5).map((p: any) => ({
+  nombre: p.nombre,
+  precio: p.precio,
+  clienteNombre: (p.cliente_id && clientesPorId.get(p.cliente_id))?.nombre_restaurante || '—',
+}));
+---
+
+<AdminLayout title="Estadísticas · Admin MiCarta">
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-2xl md:text-3xl font-display font-black text-white">Estadísticas</h1>
+    <p class="text-ink-400 mt-1.5 text-sm">Métricas calculadas con la información real de la base de datos</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    {stats.map((stat) => (
+      <div class="bg-ink-900 border border-ink-800 rounded-2xl p-5">
+        <div class="flex justify-between items-start mb-4">
+          <span class="text-xs text-ink-500 font-medium">{stat.title}</span>
+          <span class={`w-9 h-9 rounded-xl flex items-center justify-center ${
+            stat.color === 'amber' ? 'bg-amber-500/20 text-amber-400' :
+            stat.color === 'purple' ? 'bg-purple-500/20 text-purple-400' :
+            stat.color === 'blue' ? 'bg-blue-500/20 text-blue-400' :
+            'bg-mint-500/20 text-mint-400'
+          }`}><Icon name={stat.icon} class="w-4 h-4" /></span>
+        </div>
+        <p class="text-2xl font-black text-white">{stat.value}</p>
+        <p class="text-xs mt-2 text-ink-500">{stat.footer}</p>
+      </div>
+    ))}
+  </div>
+
+  <!-- Charts grid -->
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+    <!-- Categorias chart -->
+    <div class="bg-ink-900 border border-ink-800 rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="font-bold text-white">Platos por categoría</h2>
+          <p class="text-xs text-ink-500 mt-1">Distribución real de la carta</p>
+        </div>
+      </div>
+
+      {chartBars.length > 0 ? (
+        <div class="flex items-end gap-3 h-48 border-b border-ink-700 pb-4">
+          {chartBars.map((bar) => (
+            <div class="flex-1 flex flex-col items-center gap-2">
+              <span class="text-[10px] text-ink-500">{bar.count}</span>
+              <div
+                class="w-full bg-gradient-to-t from-amber-500 to-amber-400 rounded-md transition hover:opacity-80"
+                style={`height: ${bar.height}%`}
+                title={`${bar.count} platos`}
+              ></div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p class="text-sm text-ink-500 py-12 text-center">Sin categorías registradas todavía.</p>
+      )}
+      <div class="flex justify-between mt-3 text-[10px] text-ink-500">
+        {chartBars.map((bar) => (
+          <span>{bar.name}</span>
+        ))}
+      </div>
+    </div>
+
+    <!-- Top restaurantes -->
+    <div class="bg-ink-900 border border-ink-800 rounded-2xl p-6">
+      <h2 class="font-bold text-white mb-6">Restaurantes con más platos</h2>
+      {restaurantesTop.length > 0 ? (
+        <div class="space-y-4">
+          {restaurantesTop.map((r, i) => (
+            <div class="flex items-center gap-4">
+              <span class={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                i === 0 ? 'bg-amber-500 text-ink-900' :
+                i === 1 ? 'bg-ink-600 text-ink-300' :
+                i === 2 ? 'bg-amber-700/50 text-amber-300' :
+                'bg-ink-800 text-ink-500'
+              }`}>
+                {i + 1}
+              </span>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-white truncate">{r.nombre}</p>
+                <p class="text-xs text-ink-500">{r.platos} platos</p>
+              </div>
+              <span class={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                r.estado ? 'bg-mint-500/10 text-mint-400' : 'bg-cherry-500/10 text-cherry-400'
+              }`}>
+                <span class="w-1 h-1 rounded-full bg-current"></span>
+                {r.estado ? 'Activo' : 'Inactivo'}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p class="text-sm text-ink-500 py-12 text-center">Sin restaurantes registrados todavía.</p>
+      )}
+    </div>
+  </div>
+
+  <!-- Últimos platos añadidos -->
+  <div class="bg-ink-900 border border-ink-800 rounded-2xl p-6">
+    <h2 class="font-bold text-white mb-6">Últimos platos añadidos</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full">
+        <thead>
+          <tr class="text-left text-xs text-ink-500 uppercase tracking-wider border-b border-ink-800">
+            <th class="pb-3">#</th>
+            <th class="pb-3">Plato</th>
+            <th class="pb-3">Restaurante</th>
+            <th class="pb-3 text-right">Precio</th>
+          </tr>
+        </thead>
+        <tbody>
+          {platosRecientes.length > 0 ? (
+            platosRecientes.map((plato, i) => (
+              <tr class="border-b border-ink-800/50">
+                <td class="py-4">
+                  <span class={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold ${
+                    i === 0 ? 'bg-amber-500 text-ink-900' :
+                    i === 1 ? 'bg-ink-600 text-ink-300' :
+                    i === 2 ? 'bg-amber-700/50 text-amber-300' :
+                    'bg-ink-800 text-ink-500'
+                  }`}>
+                    {i + 1}
+                  </span>
+                </td>
+                <td class="py-4">
+                  <p class="font-medium text-sm text-white">{plato.nombre}</p>
+                </td>
+                <td class="py-4">
+                  <p class="text-sm text-ink-400">{plato.clienteNombre || '—'}</p>
+                </td>
+                <td class="py-4 text-right">
+                  <span class="text-sm font-medium text-amber-400">S/{plato.precio}</span>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colspan="4" class="py-10 text-center text-ink-500 text-sm">Sin platos registrados todavía.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</AdminLayout>

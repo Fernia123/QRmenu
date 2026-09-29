@@ -1,0 +1,455 @@
+---
+import '../styles/global.css';
+import Icon from '../components/Icon.astro';
+import { fetchCategorias, fetchPlatos, fetchRestaurant } from '../db/database';
+
+const url = new URL(Astro.request.url);
+const clienteParam = url.searchParams.get('cliente') || url.searchParams.get('id');
+
+let categories: any[] = [];
+let dishes: any[] = [];
+let restaurant: any = { id: null, name: '', slogan: '', logo: '🍽️' };
+
+try {
+  restaurant = await fetchRestaurant(clienteParam);
+  categories = await fetchCategorias(restaurant.id);
+  dishes = restaurant.id
+    ? await fetchPlatos({ clienteId: restaurant.id })
+    : await fetchPlatos();
+} catch (e) {
+  console.error('Error cargando carta pública:', e);
+}
+
+const businessName = restaurant.name || 'Carta Digital';
+
+const visibleCategories = categories.filter((category) =>
+  dishes.some((dish) => dish.categoria_id === category.id)
+);
+
+const dishesByCategory = (categoryId: string) =>
+  dishes.filter((dish) => dish.categoria_id === categoryId);
+
+const HOURS_OPEN = '12:00';
+const HOURS_CLOSE = '22:00';
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="description" content={`${businessName} — Carta digital.`} />
+    <meta name="theme-color" content="#18181b" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <title>{businessName} · Carta</title>
+
+    <script is:inline>
+      (function () {
+        try {
+          var saved = localStorage.getItem('micarta:theme');
+          var theme =
+            saved === 'light' || saved === 'dark'
+              ? saved
+              : window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (_) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
+  </head>
+
+  <body class="bg-zinc-950 text-zinc-300 min-h-screen antialiased selection:bg-amber-500/30 selection:text-amber-100">
+    
+    <main class="relative max-w-2xl mx-auto px-6 pb-24">
+      <!-- Header Editorial -->
+      <header class="reveal pt-12 pb-10 text-center border-b border-zinc-800/60">
+        <div class="inline-flex items-center justify-center w-16 h-16 mb-6 rounded-2xl bg-zinc-900 border border-zinc-800 text-3xl shadow-sm">
+          {restaurant.logo}
+        </div>
+        
+        <h1 class="font-['Fraunces'] text-5xl sm:text-6xl font-semibold text-zinc-100 tracking-tight mb-3">
+          {businessName}
+        </h1>
+        {restaurant.slogan && (
+          <p class="font-['Inter'] text-zinc-500 text-lg font-light italic tracking-wide">{restaurant.slogan}</p>
+        )}
+
+        <div class="flex items-center justify-center gap-4 mt-6 text-sm font-medium">
+          <span class="flex items-center gap-2">
+            <span id="openDot" class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span>
+            <span id="openLabel" class="text-zinc-300">Abierto ahora</span>
+          </span>
+          <span class="text-zinc-700">|</span>
+          <span class="flex items-center gap-1.5 text-zinc-500">
+            <Icon name="clock" class="w-3.5 h-3.5" />
+            <span id="hoursLabel">{HOURS_OPEN} – {HOURS_CLOSE}</span>
+          </span>
+        </div>
+      </header>
+
+      <!-- Sticky Controls -->
+      <div id="stickyBar" class="sticky top-0 z-30 -mx-6 px-6 py-4 bg-zinc-950/95 backdrop-blur-md border-b border-zinc-800/60 transition-shadow duration-300">
+        <!-- Search -->
+        <div class="relative mb-4">
+          <Icon name="search" class="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          <input
+            type="search"
+            id="menuSearch"
+            placeholder="Buscar plato o ingrediente..."
+            autocomplete="off"
+            class="w-full bg-transparent border-b border-zinc-800 py-2 pl-8 pr-8 text-zinc-200 placeholder-zinc-600 outline-none focus:border-amber-600 transition-colors"
+          />
+          <button
+            id="searchClear"
+            type="button"
+            class="hidden absolute right-0 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-xs font-semibold transition-colors"
+            aria-label="Borrar búsqueda"
+          >
+            Limpiar
+          </button>
+        </div>
+
+        <p id="searchStatus" class="sr-only" role="status" aria-live="polite"></p>
+
+        <!-- Category Tabs (Underline style) -->
+        <nav id="categoryTabs" class="flex gap-6 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" aria-label="Categorías">
+          {visibleCategories.map((category, i) => (
+            <a
+              href={`#cat-${category.id}`}
+              class={`tab shrink-0 pb-2 text-sm font-medium border-b-2 transition-all duration-200 whitespace-nowrap ${
+                i === 0 
+                  ? 'border-amber-600 text-amber-500' 
+                  : 'border-transparent text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+              }`}
+              aria-current={i === 0 ? 'true' : 'false'}
+            >
+              {category.nombre}
+            </a>
+          ))}
+        </nav>
+      </div>
+
+      <!-- Menu Sections -->
+      <div id="menuSections" class="reveal mt-10 space-y-12">
+        {visibleCategories.map((category) => (
+          <section id={`cat-${category.id}`} class="menu-section scroll-mt-40">
+            <!-- Category Title with Line -->
+            <div class="flex items-center gap-4 mb-6">
+              <h2 class="font-['Fraunces'] text-2xl font-semibold text-zinc-100 whitespace-nowrap">
+                {category.nombre}
+              </h2>
+              <div class="h-px bg-zinc-800 flex-1"></div>
+              <span class="text-xs font-medium text-zinc-600 tabular-nums" data-category-count={category.id}>
+                {dishesByCategory(category.id).length}
+              </span>
+            </div>
+
+            <!-- Dishes List -->
+            <div class="space-y-1">
+              {dishesByCategory(category.id).map((dish) => (
+                <article
+                  data-dish-id={dish.id}
+                  class={`group relative py-4 px-2 -mx-2 rounded-lg transition-all duration-200 ${
+                    dish.disponible 
+                      ? 'hover:bg-zinc-900/50' 
+                      : 'opacity-50'
+                  }`}
+                >
+                  <div class="flex items-baseline gap-3">
+                    <h3 class="font-['Fraunces'] text-lg font-medium text-zinc-200 group-hover:text-amber-500 transition-colors leading-tight">
+                      {dish.nombre}
+                    </h3>
+                    <span class="price-leader flex-1 border-b border-dotted border-zinc-700 mb-1.5" aria-hidden="true"></span>
+                    <span class="font-['Inter'] font-semibold text-amber-500 text-lg tabular-nums shrink-0" data-dish-price={dish.precio}>
+                      S/{dish.precio}
+                    </span>
+                  </div>
+                  
+                  <p class="text-sm text-zinc-500 mt-1.5 leading-relaxed font-light pr-12">
+                    {dish.descripcion}
+                  </p>
+
+                  {!dish.disponible && (
+                    <span class="sold-out-badge inline-flex mt-2 items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-rose-500/80">
+                      <span class="w-1 h-1 rounded-full bg-rose-500/80"></span>
+                      Agotado
+                    </span>
+                  )}
+                </article>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <!-- Empty State -->
+      <p id="menuEmpty" class="hidden flex-col items-center text-center text-zinc-600 py-20 text-sm gap-3">
+        <Icon name="search" class="w-8 h-8 opacity-30" />
+        <span class="font-medium text-zinc-500">No se encontraron resultados.</span>
+        <span class="text-xs">Intenta con otro término de búsqueda.</span>
+      </p>
+
+      <!-- Footer -->
+      <footer class="text-center mt-20 pt-8 border-t border-zinc-800/60">
+        <p class="text-xs text-zinc-600 font-light tracking-wide">
+          Carta digital diseñada para 
+          <a href="/" class="text-amber-600 font-medium hover:text-amber-500 transition-colors">Menu QR</a>
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>
+
+<script define:vars={{ HOURS_OPEN, HOURS_CLOSE }}>
+  const searchInput = document.getElementById('menuSearch');
+  const searchClear = document.getElementById('searchClear');
+  const searchStatus = document.getElementById('searchStatus');
+  const sectionsRoot = document.getElementById('menuSections');
+  const emptyMsg = document.getElementById('menuEmpty');
+  const stickyBar = document.getElementById('stickyBar');
+
+  let searchTimer = null;
+
+  function runSearch() {
+    const query = searchInput.value.trim().toLowerCase();
+    searchClear.classList.toggle('hidden', query === '');
+    searchClear.classList.toggle('flex', query !== ''); // Note: flex is fine, or block
+
+    let anyVisible = false;
+    let visibleCount = 0;
+
+    sectionsRoot.querySelectorAll('.menu-section').forEach((section) => {
+      let sectionHasVisible = false;
+
+      section.querySelectorAll('article:not([data-removed="true"])').forEach((article) => {
+        const text = article.textContent?.toLowerCase() ?? '';
+        const show = query === '' || text.includes(query);
+        article.style.display = show ? '' : 'none';
+        if (show) {
+          sectionHasVisible = true;
+          visibleCount += 1;
+        }
+      });
+
+      section.style.display = sectionHasVisible ? '' : 'none';
+      if (sectionHasVisible) anyVisible = true;
+    });
+
+    emptyMsg.classList.toggle('hidden', anyVisible);
+    emptyMsg.classList.toggle('flex', !anyVisible);
+
+    searchStatus.textContent =
+      query === ''
+        ? ''
+        : anyVisible
+          ? `${visibleCount} plato${visibleCount === 1 ? '' : 's'} encontrado${visibleCount === 1 ? '' : 's'}`
+          : 'Sin resultados';
+  }
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(runSearch, 150);
+  });
+
+  searchClear.addEventListener('click', () => {
+    searchInput.value = '';
+    searchInput.focus();
+    runSearch();
+  });
+
+  let ticking = false;
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        stickyBar.classList.toggle('is-scrolled', window.scrollY > 10);
+        ticking = false;
+      });
+    },
+    { passive: true }
+  );
+
+  const tabs = Array.from(document.querySelectorAll('#categoryTabs a'));
+  const sections = Array.from(document.querySelectorAll('.menu-section'));
+
+  const setActive = (id) => {
+    tabs.forEach((tab) => {
+      const active = tab.getAttribute('href') === `#${id}`;
+      if (active) {
+        tab.classList.remove('border-transparent', 'text-zinc-500', 'hover:text-zinc-300', 'hover:border-zinc-700');
+        tab.classList.add('border-amber-600', 'text-amber-500');
+        tab.setAttribute('aria-current', 'true');
+        tab.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+      } else {
+        tab.classList.add('border-transparent', 'text-zinc-500', 'hover:text-zinc-300', 'hover:border-zinc-700');
+        tab.classList.remove('border-amber-600', 'text-amber-500');
+        tab.setAttribute('aria-current', 'false');
+      }
+    });
+  };
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) setActive(entry.target.id);
+      }
+    },
+    { rootMargin: '-15% 0px -75% 0px' }
+  );
+  sections.forEach((section) => observer.observe(section));
+
+  function updateOpenBadge() {
+    const [openH, openM] = HOURS_OPEN.split(':').map(Number);
+    const [closeH, closeM] = HOURS_CLOSE.split(':').map(Number);
+    const now = new Date();
+    const minutesNow = now.getHours() * 60 + now.getMinutes();
+    const openMinutes = openH * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
+    const isOpen = minutesNow >= openMinutes && minutesNow < closeMinutes;
+
+    const dot = document.getElementById('openDot');
+    const label = document.getElementById('openLabel');
+
+    if (isOpen) {
+      dot.classList.remove('bg-rose-500', 'shadow-[0_0_8px_rgba(244,63,94,0.6)]');
+      dot.classList.add('bg-emerald-500', 'shadow-[0_0_8px_rgba(16,185,129,0.6)]');
+      label.textContent = 'Abierto ahora';
+      label.classList.remove('text-rose-400');
+      label.classList.add('text-zinc-300');
+    } else {
+      dot.classList.remove('bg-emerald-500', 'shadow-[0_0_8px_rgba(16,185,129,0.6)]');
+      dot.classList.add('bg-rose-500', 'shadow-[0_0_8px_rgba(244,63,94,0.6)]');
+      label.textContent = 'Cerrado ahora';
+      label.classList.remove('text-zinc-300');
+      label.classList.add('text-rose-400');
+    }
+  }
+
+  updateOpenBadge();
+  setInterval(updateOpenBadge, 60_000);
+
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('.reveal').forEach((el, i) => {
+      el.style.animation = `reveal-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) ${i * 0.1}s both`;
+    });
+  }
+</script>
+
+<style is:global>
+  @keyframes reveal-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .price-leader {
+    flex: 1 1 auto;
+    min-width: 20px;
+  }
+
+  #stickyBar.is-scrolled {
+    box-shadow: 0 10px 30px -10px rgb(0 0 0 / 0.8);
+    border-bottom-color: rgb(63 63 70 / 0.6); /* zinc-700 */
+  }
+
+  #menuEmpty.flex {
+    display: flex;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ── Light Theme: Premium Paper ──────────────────────────── */
+  html[data-theme='light'] body {
+    background: #fafaf9; /* stone-50 */
+    color: #44403c; /* stone-700 */
+  }
+  
+  html[data-theme='light'] header {
+    border-bottom-color: #e7e5e4; /* stone-200 */
+  }
+
+  html[data-theme='light'] h1,
+  html[data-theme='light'] h2,
+  html[data-theme='light'] h3 {
+    color: #1c1917; /* stone-900 */
+  }
+
+  html[data-theme='light'] #stickyBar {
+    background: rgb(250 250 249 / 0.95); /* stone-50 */
+    border-bottom-color: #e7e5e4;
+  }
+
+  html[data-theme='light'] #stickyBar.is-scrolled {
+    box-shadow: 0 10px 30px -10px rgb(28 25 23 / 0.15);
+  }
+
+  html[data-theme='light'] #menuSearch {
+    color: #1c1917;
+    border-bottom-color: #d6d3d1; /* stone-300 */
+  }
+  
+  html[data-theme='light'] #menuSearch:focus {
+    border-bottom-color: #d97706; /* amber-600 */
+  }
+
+  html[data-theme='light'] .tab {
+    color: #a8a29e; /* stone-400 */
+  }
+  
+  html[data-theme='light'] .tab:hover {
+    color: #57534e; /* stone-600 */
+    border-bottom-color: #d6d3d1;
+  }
+
+  html[data-theme='light'] .tab-active, 
+  html[data-theme='light'] #categoryTabs a[aria-current='true'] {
+    color: #d97706 !important; /* amber-600 */
+    border-bottom-color: #d97706 !important;
+  }
+
+  html[data-theme='light'] .menu-section h2 {
+    color: #1c1917;
+  }
+
+  html[data-theme='light'] .menu-section .h-px {
+    background-color: #e7e5e4;
+  }
+
+  html[data-theme='light'] article:hover {
+    background: rgb(28 25 23 / 0.03);
+  }
+
+  html[data-theme='light'] .price-leader {
+    border-bottom-color: #d6d3d1;
+  }
+
+  html[data-theme='light'] #stickyBar.is-scrolled {
+    border-bottom-color: #e7e5e4;
+  }
+</style>

@@ -1,0 +1,224 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { fetchClientes, fetchPlatos, fetchCategorias } from '../../db/database';
+
+let clientes: any[] = [];
+let platos: any[] = [];
+let categorias: any[] = [];
+
+try {
+  const [cli, pla, cat] = await Promise.all([
+    fetchClientes(),
+    fetchPlatos(),
+    fetchCategorias(),
+  ]);
+  clientes = cli;
+  platos = pla;
+  categorias = cat;
+} catch (e) {
+  console.error('Error cargando dashboard admin:', e);
+}
+
+const countsByCat = categorias.map((cat: any) => ({
+  name: cat.nombre,
+  count: platos.filter((p: any) => p.categoria_id === cat.id).length,
+}));
+const maxCatCount = Math.max(1, ...countsByCat.map((c) => c.count));
+const chartBars = countsByCat.map((c) => ({
+  name: c.name.length <= 5 ? c.name : c.name.slice(0, 3).toUpperCase(),
+  height: Math.round((c.count / maxCatCount) * 100),
+}));
+---
+
+<AdminLayout title="Dashboard Admin · MiCarta">
+  <!-- Welcome -->
+  <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-display font-black text-white">Bienvenido, Administrador 👋</h1>
+      <p class="text-ink-400 mt-1.5 text-sm">Resumen general de tu plataforma y restaurantes registrados.</p>
+    </div>
+    <a 
+      href="/admin/clientes" 
+      class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-ink-950 font-bold text-sm hover:brightness-110 shadow-lg shadow-amber-500/20 transition shrink-0 w-fit"
+    >
+      <Icon name="plus" class="w-4 h-4" />
+      Gestionar clientes
+    </a>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="bg-ink-900 border border-ink-800 rounded-2xl p-5 hover:bg-ink-800/50 transition shadow-md">
+      <div class="flex justify-between items-start mb-4">
+        <span class="text-xs text-ink-500 font-medium">Clientes registrados</span>
+        <span class="w-9 h-9 rounded-xl flex items-center justify-center bg-brand-500/20 text-brand-400">
+          <Icon name="users" class="w-5 h-5" />
+        </span>
+      </div>
+      <p id="dash-total-clientes" class="text-2xl font-black text-white">--</p>
+      <p class="text-xs text-mint-400 mt-2">↑ En plataforma</p>
+    </div>
+
+    <div class="bg-ink-900 border border-ink-800 rounded-2xl p-5 hover:bg-ink-800/50 transition shadow-md">
+      <div class="flex justify-between items-start mb-4">
+        <span class="text-xs text-ink-500 font-medium">Clientes activos</span>
+        <span class="w-9 h-9 rounded-xl flex items-center justify-center bg-mint-500/20 text-mint-400">
+          <Icon name="check" class="w-5 h-5" />
+        </span>
+      </div>
+      <p id="dash-activos-clientes" class="text-2xl font-black text-white">--</p>
+      <p class="text-xs text-mint-400 mt-2">↑ Cuentas operativas</p>
+    </div>
+
+    <div class="bg-ink-900 border border-ink-800 rounded-2xl p-5 hover:bg-ink-800/50 transition shadow-md">
+      <div class="flex justify-between items-start mb-4">
+        <span class="text-xs text-ink-500 font-medium">Platos en total</span>
+        <span class="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-500/20 text-amber-400">
+          <Icon name="dishes" class="w-5 h-5" />
+        </span>
+      </div>
+      <p id="dash-total-platos" class="text-2xl font-black text-white">--</p>
+      <p class="text-xs text-amber-400 mt-2">Platos configurados</p>
+    </div>
+
+    <div class="bg-ink-900 border border-ink-800 rounded-2xl p-5 hover:bg-ink-800/50 transition shadow-md">
+      <div class="flex justify-between items-start mb-4">
+        <span class="text-xs text-ink-500 font-medium">Categorías</span>
+        <span class="w-9 h-9 rounded-xl flex items-center justify-center bg-accent-500/20 text-accent-400">
+          <Icon name="grid" class="w-5 h-5" />
+        </span>
+      </div>
+      <p id="dash-total-categorias" class="text-2xl font-black text-white">--</p>
+      <p class="text-xs text-mint-400 mt-2">↑ En la carta</p>
+    </div>
+  </div>
+
+  <!-- Dashboard grid -->
+  <div class="grid grid-cols-1 xl:grid-cols-[1.5fr_1fr] gap-6">
+    <!-- Clientes recientes -->
+    <div class="bg-ink-900 border border-ink-800 rounded-2xl overflow-hidden shadow-xl">
+      <div class="p-5 border-b border-ink-800 flex items-center justify-between">
+        <h2 class="font-bold text-white">Clientes recientes</h2>
+        <a href="/admin/clientes" class="text-xs text-amber-400 hover:text-amber-300 font-semibold transition">Ver todos →</a>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead>
+            <tr class="text-left text-xs text-ink-500 uppercase tracking-wider bg-ink-950/40 border-b border-ink-800">
+              <th class="px-5 py-3">Cliente</th>
+              <th class="px-5 py-3">Estado</th>
+              <th class="px-5 py-3 text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="dash-clientes-body">
+            <!-- Renderizado dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="bg-ink-900 border border-ink-800 rounded-2xl overflow-hidden shadow-xl">
+      <div class="p-5 border-b border-ink-800 flex items-center justify-between">
+        <h2 class="font-bold text-white">Platos por categoría</h2>
+        <a href="/admin/estadisticas" class="text-xs text-amber-400 hover:text-amber-300 font-semibold transition">Ver estadísticas →</a>
+      </div>
+
+      <div class="p-6">
+        <p class="text-3xl font-black text-white">{platos.length}</p>
+        <p class="text-xs text-mint-400 mt-1">platos registrados en total</p>
+
+        {chartBars.length > 0 ? (
+          <div class="mt-6">
+            <div class="flex items-end gap-2 h-36 border-b border-ink-700 pb-2">
+              {chartBars.map((bar) => (
+                <div
+                  class="flex-1 bg-gradient-to-t from-amber-600 to-amber-400 rounded-t-md transition hover:opacity-80"
+                  style={`height: ${bar.height}%`}
+                  title={bar.name}
+                ></div>
+              ))}
+            </div>
+            <div class="flex justify-between mt-2 text-[10px] text-ink-500">
+              {chartBars.map((bar) => (
+                <span>{bar.name}</span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p class="text-sm text-ink-500 py-10 text-center">Sin datos todavía.</p>
+        )}
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import { fetchClientes, fetchPlatos, fetchCategorias } from '../../db/database';
+
+  async function initAdminDashboard() {
+    const clientes = await fetchClientes();
+    const dishes = await fetchPlatos();
+    const cats = await fetchCategorias();
+
+    const elTotalClientes = document.getElementById('dash-total-clientes');
+    const elActivosClientes = document.getElementById('dash-activos-clientes');
+    const elTotalPlatos = document.getElementById('dash-total-platos');
+    const elTotalCategorias = document.getElementById('dash-total-categorias');
+    const clientesBody = document.getElementById('dash-clientes-body');
+
+    if (elTotalClientes) elTotalClientes.textContent = String(clientes.length);
+    if (elActivosClientes) elActivosClientes.textContent = String(clientes.filter((c) => c.estado === true).length);
+    if (elTotalPlatos) elTotalPlatos.textContent = String(dishes.length);
+    if (elTotalCategorias) elTotalCategorias.textContent = String(cats.length);
+
+    if (clientesBody) {
+      const recientes = clientes.slice(0, 5);
+      if (recientes.length === 0) {
+        clientesBody.innerHTML = `
+          <tr>
+            <td colspan="3" class="px-5 py-6 text-center text-ink-500 text-xs">No hay clientes registrados aún.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      clientesBody.innerHTML = recientes.map((c) => {
+        const activo = c.estado === true;
+        return `
+        <tr class="border-b border-ink-800/50 hover:bg-ink-800/30 transition">
+          <td class="px-5 py-4">
+            <div class="flex items-center gap-3">
+              <span class="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-sm shrink-0 border border-amber-500/20">
+                ${c.nombre_restaurante.charAt(0).toUpperCase()}
+              </span>
+              <div>
+                <p class="font-medium text-sm text-white">${escapeHtml(c.nombre_restaurante)}</p>
+                <p class="text-xs text-ink-500">/${escapeHtml(c.slug)}</p>
+              </div>
+            </div>
+          </td>
+          <td class="px-5 py-4">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+              activo ? 'bg-mint-500/10 text-mint-400 border border-mint-500/20' : 'bg-cherry-500/10 text-cherry-400 border border-cherry-500/20'
+            }">
+              <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+              ${activo ? 'Activo' : 'Inactivo'}
+            </span>
+          </td>
+          <td class="px-5 py-4 text-right">
+            <a href="/admin/clientes" class="text-xs text-amber-400 hover:underline">Gestionar</a>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  function escapeHtml(str: string): string {
+    return String(str ?? '').replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m] || m);
+  }
+
+  initAdminDashboard();
+</script>

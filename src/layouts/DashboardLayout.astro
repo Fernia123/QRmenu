@@ -1,0 +1,143 @@
+---
+import '../styles/global.css';
+import Icon from '../components/Icon.astro';
+import Sidebar from '../components/Sidebar.astro';
+import Logo from '../components/Logo.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+  businessName?: string;
+}
+
+const {
+  title = 'Dashboard · MiCarta',
+  description = 'Administra platos, precios y categorías de tu carta digital.',
+  businessName = '',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#2a9d8f" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800;9..144,900&family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title}</title>
+  </head>
+
+  <body class="bg-ink-50 text-ink-900 antialiased">
+    <div class="min-h-screen flex">
+      <!-- Desktop sidebar -->
+      <aside class="hidden md:flex w-64 bg-ink-900 flex-col fixed inset-y-0 left-0 z-20">
+        <Sidebar businessName={businessName} />
+      </aside>
+
+      <!-- Mobile overlay -->
+      <div
+        id="mobileMenuOverlay"
+        class="fixed inset-0 bg-ink-950/60 backdrop-blur-sm z-30 opacity-0 pointer-events-none transition-opacity md:hidden"
+      ></div>
+
+      <!-- Mobile drawer -->
+      <aside
+        id="mobileDrawer"
+        class="fixed inset-y-0 left-0 z-40 w-72 max-w-[85vw] bg-ink-900 md:hidden -translate-x-full transition-transform duration-300 ease-in-out"
+      >
+        <Sidebar businessName={businessName} mobile />
+      </aside>
+
+      <!-- Main -->
+      <main class="flex-1 md:ml-64">
+        <header class="h-16 bg-ink-50/90 backdrop-blur border-b border-ink-200/70 flex items-center justify-between px-4 md:px-8 sticky top-0 z-10">
+          <!-- Mobile brand -->
+          <div class="flex items-center gap-2 md:hidden">
+            <Logo size="sm" />
+          </div>
+
+          <!-- Search -->
+          <div class="hidden md:flex relative w-72">
+            <Icon name="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400" />
+            <input
+              type="search"
+              id="searchInput"
+              placeholder="Buscar platos..."
+              class="w-full bg-white border border-ink-200 rounded-xl py-2.5 pl-10 pr-4 text-sm text-ink-900 placeholder-ink-400 outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400 transition"
+            />
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-2 sm:gap-3 ml-auto">
+            <button
+              id="openMobileMenu"
+              class="md:hidden w-9 h-9 rounded-lg hover:bg-ink-100 transition flex items-center justify-center text-ink-600"
+              aria-label="Abrir menú"
+            >
+              <Icon name="burger" class="w-5 h-5" />
+            </button>
+
+            <a
+              href="/menu"
+              class="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-ink-900 text-white text-xs font-semibold hover:bg-ink-800 transition"
+            >
+              <Icon name="eye" class="w-4 h-4" />
+              Ver carta pública
+            </a>
+
+            <span class="hidden sm:flex items-center gap-3 pl-3 border-l border-ink-200">
+              <span class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-white flex items-center justify-center text-xs font-bold">
+                MR
+              </span>
+              <span>
+                <span class="block text-sm font-semibold text-ink-800 leading-tight">{businessName || 'MiCarta'}</span>
+                <span class="block text-xs text-ink-400 leading-tight">Administrador</span>
+              </span>
+            </span>
+          </div>
+        </header>
+
+        <div class="p-4 md:p-8">
+          <slot />
+        </div>
+      </main>
+    </div>
+
+    <script>
+      const openBtn = document.getElementById('openMobileMenu');
+      const closeBtn = document.getElementById('closeMenuBtn');
+      const overlay = document.getElementById('mobileMenuOverlay');
+      const drawer = document.getElementById('mobileDrawer');
+
+      const open = () => {
+        drawer?.classList.remove('-translate-x-full');
+        overlay?.classList.remove('opacity-0', 'pointer-events-none');
+        document.body.style.overflow = 'hidden';
+      };
+
+      const close = () => {
+        drawer?.classList.add('-translate-x-full');
+        overlay?.classList.add('opacity-0', 'pointer-events-none');
+        document.body.style.overflow = '';
+      };
+
+      openBtn?.addEventListener('click', open);
+      closeBtn?.addEventListener('click', close);
+      overlay?.addEventListener('click', close);
+      drawer?.querySelectorAll('a').forEach((a) => a.addEventListener('click', close));
+      document.addEventListener('keydown', (e) => e.key === 'Escape' && close());
+    </script>
+    <script>
+      import { requireAuth, initLogout } from '../scripts/auth';
+      initLogout();
+      requireAuth();
+    </script>
+  </body>
+</html>

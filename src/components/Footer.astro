@@ -1,0 +1,32 @@
+---
+import Logo from './Logo.astro';
+import Icon from './Icon.astro';
+
+const year = new Date().getFullYear();
+
+const links = [
+  { label: 'Términos', href: '#' },
+  { label: 'Privacidad', href: '#' },
+  { label: 'Soporte', href: '#' },
+];
+---
+
+<footer class="relative z-10 border-t border-white/10">
+  <div class="max-w-7xl mx-auto px-6 lg:px-20 py-10 flex flex-col md:flex-row items-center justify-between gap-6">
+    <a href="/" aria-label="Menu QR - inicio">
+      <Logo size="sm" onDark />
+    </a>
+
+    <p class="text-sm text-ink-400 order-last md:order-none">
+      © {year} Menu QR. Todos los derechos reservados.
+    </p>
+
+    <nav class="flex items-center gap-6" aria-label="Legal">
+      {links.map((link) => (
+        <a href={link.href} class="text-sm text-ink-400 hover:text-white transition">
+          {link.label}
+        </a>
+      ))}
+    </nav>
+  </div>
+</footer>

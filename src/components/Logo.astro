@@ -1,0 +1,27 @@
+---
+import { Image } from 'astro:assets';
+import logoSrc from '../assets/logo_sinfondo.png';
+
+interface Props {
+  size?: 'sm' | 'md' | 'lg';
+  /** Use white text for dark backgrounds (kept for API compat, unused now) */
+  onDark?: boolean;
+}
+
+const { size = 'md' } = Astro.props;
+
+const sizes = {
+  sm: { img: 'h-8 w-auto',  alt: 'Menu QR' },
+  md: { img: 'h-11 w-auto', alt: 'Menu QR' },
+  lg: { img: 'h-16 w-auto', alt: 'Menu QR' },
+};
+
+const s = sizes[size];
+---
+
+<Image
+  src={logoSrc}
+  alt={s.alt}
+  class={`${s.img} object-contain`}
+  loading="eager"
+/>
