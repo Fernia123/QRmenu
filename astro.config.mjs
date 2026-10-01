@@ -6,7 +6,7 @@ import netlify from '@astrojs/netlify';
 
 // https://astro.build/config
 export default defineConfig({
-  site: /src/pages
+  site: /src/page,
   output: 'server',
   adapter: netlify(),
   vite: {
